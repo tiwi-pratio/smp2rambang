@@ -206,21 +206,19 @@ export default function NilaiPage() {
                     <div className="grid grid-cols-2 gap-4">
                       {!editingNilai && (
                         <>
-                          <FormItem>
-                            <FormLabel>Kelas (Untuk Filter Siswa)</FormLabel>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none">Kelas (Untuk Filter Siswa)</label>
                             <Select onValueChange={setSelectedKelas} defaultValue={selectedKelas}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Pilih Kelas" />
-                                </SelectTrigger>
-                              </FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pilih Kelas" />
+                              </SelectTrigger>
                               <SelectContent>
                                 {kelasData?.map(k => (
                                   <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          </FormItem>
+                          </div>
                           <FormField
                             control={form.control}
                             name="siswa_id"
