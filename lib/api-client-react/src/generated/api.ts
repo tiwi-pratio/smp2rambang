@@ -20,6 +20,8 @@ import type {
   Absensi,
   AccountItem,
   AdminStats,
+  BulkCreateAccountsBody,
+  BulkCreateAccountsResponse,
   CreateAbsensiBody,
   CreateAccountBody,
   CreateGuruBody,
@@ -533,6 +535,92 @@ export const useCreateAccount = <
   TContext
 > => {
   return useMutation(getCreateAccountMutationOptions(options));
+};
+
+/**
+ * @summary Buat banyak akun login sekaligus (admin only)
+ */
+export const getBulkCreateAccountsUrl = () => {
+  return `/api/auth/bulk-create-accounts`;
+};
+
+export const bulkCreateAccounts = async (
+  bulkCreateAccountsBody: BulkCreateAccountsBody,
+  options?: RequestInit,
+): Promise<BulkCreateAccountsResponse> => {
+  return customFetch<BulkCreateAccountsResponse>(getBulkCreateAccountsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkCreateAccountsBody),
+  });
+};
+
+export const getBulkCreateAccountsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkCreateAccounts>>,
+    TError,
+    { data: BodyType<BulkCreateAccountsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkCreateAccounts>>,
+  TError,
+  { data: BodyType<BulkCreateAccountsBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkCreateAccounts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkCreateAccounts>>,
+    { data: BodyType<BulkCreateAccountsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkCreateAccounts(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkCreateAccountsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkCreateAccounts>>
+>;
+export type BulkCreateAccountsMutationBody = BodyType<BulkCreateAccountsBody>;
+export type BulkCreateAccountsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Buat banyak akun login sekaligus (admin only)
+ */
+export const useBulkCreateAccounts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkCreateAccounts>>,
+    TError,
+    { data: BodyType<BulkCreateAccountsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkCreateAccounts>>,
+  TError,
+  { data: BodyType<BulkCreateAccountsBody> },
+  TContext
+> => {
+  return useMutation(getBulkCreateAccountsMutationOptions(options));
 };
 
 /**

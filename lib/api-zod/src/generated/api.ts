@@ -76,6 +76,33 @@ export const CreateAccountBody = zod.object({
 });
 
 /**
+ * @summary Buat banyak akun login sekaligus (admin only)
+ */
+
+export const BulkCreateAccountsBody = zod.object({
+  accounts: zod
+    .array(
+      zod.object({
+        email: zod.string().email(),
+        password: zod.string(),
+        full_name: zod.string(),
+        role: zod.enum(["guru", "siswa"]),
+      }),
+    )
+    .min(1),
+});
+
+export const BulkCreateAccountsResponse = zod.object({
+  created: zod.number(),
+  failed: zod.array(
+    zod.object({
+      email: zod.string(),
+      reason: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Hapus akun login (admin only)
  */
 export const DeleteAccountParams = zod.object({

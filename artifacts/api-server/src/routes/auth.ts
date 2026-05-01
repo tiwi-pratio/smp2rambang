@@ -121,6 +121,71 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
   res.status(201).json({ success: true, message: `Akun ${full_name} berhasil dibuat` });
 });
 
+router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res) => {
+  const { accounts } = req.body;
+
+  if (!Array.isArray(accounts) || accounts.length === 0) {
+    res.status(400).json({ error: "Bad Request", message: "Data akun tidak boleh kosong" });
+    return;
+  }
+
+  const created: number[] = [];
+  const failed: { email: string; reason: string }[] = [];
+
+  for (const account of accounts) {
+    const { email, password, full_name, role } = account;
+
+    if (!email || !password || !full_name || !role) {
+      failed.push({ email: email || "(kosong)", reason: "Semua field wajib diisi" });
+      continue;
+    }
+
+    if (!["guru", "siswa"].includes(role)) {
+      failed.push({ email, reason: "Role harus guru atau siswa" });
+      continue;
+    }
+
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("supabase_id")
+      .eq("email", email)
+      .single();
+
+    if (existing) {
+      failed.push({ email, reason: "Email sudah terdaftar" });
+      continue;
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+
+    if (authError || !authData.user) {
+      failed.push({ email, reason: authError?.message || "Gagal membuat akun" });
+      continue;
+    }
+
+    const { error: profileError } = await supabase.from("profiles").insert({
+      supabase_id: authData.user.id,
+      email,
+      full_name,
+      role,
+    });
+
+    if (profileError) {
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      failed.push({ email, reason: profileError.message });
+      continue;
+    }
+
+    created.push(1);
+  }
+
+  res.json({ created: created.length, failed });
+});
+
 router.delete("/auth/delete-account/:supabase_id", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res) => {
   const { supabase_id } = req.params;
 

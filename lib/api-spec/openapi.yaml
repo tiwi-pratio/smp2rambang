@@ -143,6 +143,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/bulk-create-accounts:
+    post:
+      operationId: bulkCreateAccounts
+      tags: [auth]
+      summary: Buat banyak akun login sekaligus (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreateAccountsBody"
+      responses:
+        "200":
+          description: Hasil pembuatan akun massal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkCreateAccountsResponse"
+
   /auth/delete-account/{supabase_id}:
     delete:
       operationId: deleteAccount
@@ -915,6 +934,38 @@ components:
         - password
         - full_name
         - role
+
+    BulkCreateAccountsBody:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateAccountBody"
+          minItems: 1
+      required:
+        - accounts
+
+    BulkCreateAccountsResponse:
+      type: object
+      properties:
+        created:
+          type: integer
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              email:
+                type: string
+              reason:
+                type: string
+            required:
+              - email
+              - reason
+      required:
+        - created
+        - failed
 
     AccountItem:
       type: object

@@ -39,6 +39,21 @@ export interface CreateAccountBody {
   role: CreateAccountBodyRole;
 }
 
+export interface BulkCreateAccountsBody {
+  /** @minItems 1 */
+  accounts: CreateAccountBody[];
+}
+
+export type BulkCreateAccountsResponseFailedItem = {
+  email: string;
+  reason: string;
+};
+
+export interface BulkCreateAccountsResponse {
+  created: number;
+  failed: BulkCreateAccountsResponseFailedItem[];
+}
+
 export type AccountItemRole =
   (typeof AccountItemRole)[keyof typeof AccountItemRole];
 
