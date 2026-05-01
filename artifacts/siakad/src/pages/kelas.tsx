@@ -222,10 +222,11 @@ export default function KelasPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">Belum ada wali kelas</SelectItem>
-                            {guruData?.map(g => (
-                              <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>
-                            ))}
+                            {!guruData?.length
+                              ? <SelectItem value="__none__" disabled>Belum ada wali kelas</SelectItem>
+                              : guruData.map(g => (
+                                <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

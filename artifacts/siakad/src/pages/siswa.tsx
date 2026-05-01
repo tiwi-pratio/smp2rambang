@@ -249,10 +249,11 @@ export default function SiswaPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">Belum ada kelas</SelectItem>
-                            {kelasData?.map(k => (
-                              <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
-                            ))}
+                            {!kelasData?.length
+                              ? <SelectItem value="__none__" disabled>Belum ada kelas</SelectItem>
+                              : kelasData.map(k => (
+                                <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

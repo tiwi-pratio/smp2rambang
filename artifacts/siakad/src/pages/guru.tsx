@@ -207,10 +207,11 @@ export default function GuruPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">Belum ada mapel</SelectItem>
-                            {mapelData?.map(m => (
-                              <SelectItem key={m.id} value={m.id}>{m.nama_mapel}</SelectItem>
-                            ))}
+                            {!mapelData?.length
+                              ? <SelectItem value="__none__" disabled>Belum ada mapel</SelectItem>
+                              : mapelData.map(m => (
+                                <SelectItem key={m.id} value={m.id}>{m.nama_mapel}</SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
