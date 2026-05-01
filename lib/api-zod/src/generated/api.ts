@@ -54,6 +54,40 @@ export const GetMeResponse = zod.object({
 });
 
 /**
+ * @summary Daftar semua akun pengguna (admin only)
+ */
+export const ListAccountsResponseItem = zod.object({
+  supabase_id: zod.string(),
+  email: zod.string(),
+  full_name: zod.string(),
+  role: zod.enum(["admin", "guru", "siswa"]),
+  created_at: zod.string().optional(),
+});
+export const ListAccountsResponse = zod.array(ListAccountsResponseItem);
+
+/**
+ * @summary Buat akun login baru (admin only)
+ */
+export const CreateAccountBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string(),
+  full_name: zod.string(),
+  role: zod.enum(["guru", "siswa"]),
+});
+
+/**
+ * @summary Hapus akun login (admin only)
+ */
+export const DeleteAccountParams = zod.object({
+  supabase_id: zod.coerce.string(),
+});
+
+export const DeleteAccountResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
  * @summary Statistik untuk admin dashboard
  */
 export const GetAdminStatsResponse = zod.object({

@@ -24,6 +24,38 @@ export interface LoginBody {
   password: string;
 }
 
+export type CreateAccountBodyRole =
+  (typeof CreateAccountBodyRole)[keyof typeof CreateAccountBodyRole];
+
+export const CreateAccountBodyRole = {
+  guru: "guru",
+  siswa: "siswa",
+} as const;
+
+export interface CreateAccountBody {
+  email: string;
+  password: string;
+  full_name: string;
+  role: CreateAccountBodyRole;
+}
+
+export type AccountItemRole =
+  (typeof AccountItemRole)[keyof typeof AccountItemRole];
+
+export const AccountItemRole = {
+  admin: "admin",
+  guru: "guru",
+  siswa: "siswa",
+} as const;
+
+export interface AccountItem {
+  supabase_id: string;
+  email: string;
+  full_name: string;
+  role: AccountItemRole;
+  created_at?: string;
+}
+
 export type UserProfileRole =
   (typeof UserProfileRole)[keyof typeof UserProfileRole];
 

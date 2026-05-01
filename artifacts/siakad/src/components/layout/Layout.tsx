@@ -18,6 +18,7 @@ import {
   Bell,
   PanelLeftClose,
   PanelLeftOpen,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -54,6 +55,9 @@ const getAdminMenu = () => [
     { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
     { title: "Nilai", icon: FileText, url: "/nilai" },
     { title: "Raport", icon: GraduationCap, url: "/raport" },
+  ]},
+  { group: "Sistem", items: [
+    { title: "Manajemen Akun", icon: KeyRound, url: "/akun" },
   ]},
 ];
 

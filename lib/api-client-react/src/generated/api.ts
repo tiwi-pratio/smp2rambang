@@ -18,8 +18,10 @@ import type {
 
 import type {
   Absensi,
+  AccountItem,
   AdminStats,
   CreateAbsensiBody,
+  CreateAccountBody,
   CreateGuruBody,
   CreateJadwalBody,
   CreateKelasBody,
@@ -371,6 +373,251 @@ export function useGetMe<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Daftar semua akun pengguna (admin only)
+ */
+export const getListAccountsUrl = () => {
+  return `/api/auth/accounts`;
+};
+
+export const listAccounts = async (
+  options?: RequestInit,
+): Promise<AccountItem[]> => {
+  return customFetch<AccountItem[]>(getListAccountsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAccountsQueryKey = () => {
+  return [`/api/auth/accounts`] as const;
+};
+
+export const getListAccountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAccounts>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAccounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAccountsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAccounts>>> = ({
+    signal,
+  }) => listAccounts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAccounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAccountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccounts>>
+>;
+export type ListAccountsQueryError = ErrorType<void>;
+
+/**
+ * @summary Daftar semua akun pengguna (admin only)
+ */
+
+export function useListAccounts<
+  TData = Awaited<ReturnType<typeof listAccounts>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAccounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAccountsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Buat akun login baru (admin only)
+ */
+export const getCreateAccountUrl = () => {
+  return `/api/auth/create-account`;
+};
+
+export const createAccount = async (
+  createAccountBody: CreateAccountBody,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getCreateAccountUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAccountBody),
+  });
+};
+
+export const getCreateAccountMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAccount>>,
+    TError,
+    { data: BodyType<CreateAccountBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAccount>>,
+  TError,
+  { data: BodyType<CreateAccountBody> },
+  TContext
+> => {
+  const mutationKey = ["createAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAccount>>,
+    { data: BodyType<CreateAccountBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAccount(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAccount>>
+>;
+export type CreateAccountMutationBody = BodyType<CreateAccountBody>;
+export type CreateAccountMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Buat akun login baru (admin only)
+ */
+export const useCreateAccount = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAccount>>,
+    TError,
+    { data: BodyType<CreateAccountBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAccount>>,
+  TError,
+  { data: BodyType<CreateAccountBody> },
+  TContext
+> => {
+  return useMutation(getCreateAccountMutationOptions(options));
+};
+
+/**
+ * @summary Hapus akun login (admin only)
+ */
+export const getDeleteAccountUrl = (supabaseId: string) => {
+  return `/api/auth/delete-account/${supabaseId}`;
+};
+
+export const deleteAccount = async (
+  supabaseId: string,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getDeleteAccountUrl(supabaseId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAccountMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAccount>>,
+    TError,
+    { supabaseId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAccount>>,
+  TError,
+  { supabaseId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAccount>>,
+    { supabaseId: string }
+  > = (props) => {
+    const { supabaseId } = props ?? {};
+
+    return deleteAccount(supabaseId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAccount>>
+>;
+
+export type DeleteAccountMutationError = ErrorType<void>;
+
+/**
+ * @summary Hapus akun login (admin only)
+ */
+export const useDeleteAccount = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAccount>>,
+    TError,
+    { supabaseId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAccount>>,
+  TError,
+  { supabaseId: string },
+  TContext
+> => {
+  return useMutation(getDeleteAccountMutationOptions(options));
+};
 
 /**
  * @summary Statistik untuk admin dashboard

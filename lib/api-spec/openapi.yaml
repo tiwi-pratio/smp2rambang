@@ -101,6 +101,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/accounts:
+    get:
+      operationId: listAccounts
+      tags: [auth]
+      summary: Daftar semua akun pengguna (admin only)
+      responses:
+        "200":
+          description: Daftar akun
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountItem"
+        "403":
+          description: Akses ditolak
+
+  /auth/create-account:
+    post:
+      operationId: createAccount
+      tags: [auth]
+      summary: Buat akun login baru (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountBody"
+      responses:
+        "201":
+          description: Akun berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Data tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/delete-account/{supabase_id}:
+    delete:
+      operationId: deleteAccount
+      tags: [auth]
+      summary: Hapus akun login (admin only)
+      parameters:
+        - name: supabase_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Akun berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Akun tidak ditemukan
+
   # DASHBOARD
   /dashboard/admin-stats:
     get:
@@ -833,6 +896,45 @@ components:
       required:
         - email
         - password
+
+    CreateAccountBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [guru, siswa]
+      required:
+        - email
+        - password
+        - full_name
+        - role
+
+    AccountItem:
+      type: object
+      properties:
+        supabase_id:
+          type: string
+        email:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [admin, guru, siswa]
+        created_at:
+          type: string
+      required:
+        - supabase_id
+        - email
+        - full_name
+        - role
 
     LoginResponse:
       type: object
