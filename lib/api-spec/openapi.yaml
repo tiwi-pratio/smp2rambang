@@ -935,6 +935,9 @@ components:
         nis:
           type: string
           description: NIS siswa (opsional)
+        nip:
+          type: string
+          description: NIP guru (opsional, jika role=guru)
       required:
         - email
         - password
@@ -990,6 +993,8 @@ components:
         kelas_nama:
           type: string
         siswa_id:
+          type: string
+        guru_id:
           type: string
       required:
         - supabase_id

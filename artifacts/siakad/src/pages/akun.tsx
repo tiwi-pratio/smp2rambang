@@ -83,6 +83,7 @@ type BulkRow = {
   role: "guru" | "siswa";
   kelas_id: string;
   nis: string;
+  nip: string;
 };
 
 let rowIdCounter = 1;
@@ -95,6 +96,7 @@ const emptyRow = (): BulkRow => ({
   role: "siswa",
   kelas_id: "",
   nis: "",
+  nip: "",
 });
 
 export default function AkunPage() {
@@ -118,6 +120,7 @@ export default function AkunPage() {
     role: "siswa" as "guru" | "siswa",
     kelas_id: "",
     nis: "",
+    nip: "",
   });
 
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyRow()]);
@@ -132,7 +135,7 @@ export default function AkunPage() {
         queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
         toast({ title: "Berhasil", description: "Akun berhasil dibuat" });
         setOpenCreate(false);
-        setForm({ email: "", password: "", full_name: "", role: "siswa", kelas_id: "", nis: "" });
+        setForm({ email: "", password: "", full_name: "", role: "siswa", kelas_id: "", nis: "", nip: "" });
       },
       onError: (err: any) => {
         toast({
@@ -190,6 +193,8 @@ export default function AkunPage() {
     if (form.role === "siswa") {
       payload.kelas_id = form.kelas_id;
       if (form.nis) payload.nis = form.nis;
+    } else if (form.role === "guru") {
+      if (form.nip) payload.nip = form.nip;
     }
     createMutation.mutate({ data: payload });
   };
@@ -209,6 +214,7 @@ export default function AkunPage() {
       const acc: any = { email: r.email, password: r.password, full_name: r.full_name, role: r.role };
       if (r.role === "siswa" && r.kelas_id) acc.kelas_id = r.kelas_id;
       if (r.role === "siswa" && r.nis) acc.nis = r.nis;
+      if (r.role === "guru" && r.nip) acc.nip = r.nip;
       return acc;
     });
     bulkMutation.mutate({ data: { accounts } });
@@ -232,6 +238,8 @@ export default function AkunPage() {
   };
 
   const hasSiswaRow = bulkRows.some((r) => r.role === "siswa");
+  const hasGuruRow = bulkRows.some((r) => r.role === "guru");
+  const hasExtraCol = hasSiswaRow || hasGuruRow;
 
   return (
     <div className="space-y-6">
@@ -266,10 +274,15 @@ export default function AkunPage() {
           <p className="font-medium">Cara mendaftarkan siswa atau guru:</p>
           <ol className="mt-1 ml-4 list-decimal space-y-0.5">
             <li>
-              Klik <strong>Buat Akun Baru</strong> dan isi data. Untuk siswa, pilih kelas secara otomatis
+              Klik <strong>Buat Akun Baru</strong> — pilih role, isi nama, email, dan password
             </li>
-            <li>Data siswa akan dibuat otomatis di halaman Siswa</li>
-            <li>Bagikan email &amp; password kepada siswa/guru yang bersangkutan</li>
+            <li>
+              Untuk <strong>Siswa</strong>: pilih kelas (wajib) dan NIS (opsional) — data siswa dibuat otomatis
+            </li>
+            <li>
+              Untuk <strong>Guru</strong>: isi NIP jika ada — data guru dibuat otomatis
+            </li>
+            <li>Bagikan email &amp; password kepada yang bersangkutan</li>
           </ol>
         </div>
       </div>
@@ -365,7 +378,7 @@ export default function AkunPage() {
               <Select
                 value={form.role}
                 onValueChange={(v) =>
-                  setForm({ ...form, role: v as "guru" | "siswa", kelas_id: "", nis: "" })
+                  setForm({ ...form, role: v as "guru" | "siswa", kelas_id: "", nis: "", nip: "" })
                 }
               >
                 <SelectTrigger>
@@ -412,6 +425,20 @@ export default function AkunPage() {
                   />
                 </div>
               </>
+            )}
+
+            {form.role === "guru" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="nip">
+                  NIP <span className="text-muted-foreground text-xs">(opsional)</span>
+                </Label>
+                <Input
+                  id="nip"
+                  placeholder="Nomor Induk Pegawai"
+                  value={form.nip}
+                  onChange={(e) => setForm({ ...form, nip: e.target.value })}
+                />
+              </div>
             )}
           </div>
           <DialogFooter className="pt-2">
@@ -478,8 +505,8 @@ export default function AkunPage() {
 
               <div
                 className={`grid gap-2 px-1 ${
-                  hasSiswaRow
-                    ? "grid-cols-[1fr_1fr_1fr_120px_140px_100px_36px]"
+                  hasExtraCol
+                    ? "grid-cols-[1fr_1fr_1fr_120px_140px_36px]"
                     : "grid-cols-[1fr_1fr_1fr_140px_36px]"
                 }`}
               >
@@ -487,10 +514,11 @@ export default function AkunPage() {
                 <span className="text-xs font-medium text-muted-foreground">Email</span>
                 <span className="text-xs font-medium text-muted-foreground">Password</span>
                 <span className="text-xs font-medium text-muted-foreground">Role</span>
-                {hasSiswaRow && (
+                {hasExtraCol && (
                   <>
-                    <span className="text-xs font-medium text-muted-foreground">Kelas</span>
-                    <span className="text-xs font-medium text-muted-foreground">NIS</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {hasSiswaRow && hasGuruRow ? "Kelas / NIP" : hasSiswaRow ? "Kelas" : "NIP"}
+                    </span>
                   </>
                 )}
                 <span />
@@ -501,8 +529,8 @@ export default function AkunPage() {
                   <div
                     key={row.id}
                     className={`grid gap-2 items-center ${
-                      hasSiswaRow
-                        ? "grid-cols-[1fr_1fr_1fr_120px_140px_100px_36px]"
+                      hasExtraCol
+                        ? "grid-cols-[1fr_1fr_1fr_120px_140px_36px]"
                         : "grid-cols-[1fr_1fr_1fr_140px_36px]"
                     }`}
                   >
@@ -525,9 +553,7 @@ export default function AkunPage() {
                     />
                     <Select
                       value={row.role}
-                      onValueChange={(v) =>
-                        updateRow(row.id, "role", v)
-                      }
+                      onValueChange={(v) => updateRow(row.id, "role", v)}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -537,20 +563,17 @@ export default function AkunPage() {
                         <SelectItem value="guru">Guru</SelectItem>
                       </SelectContent>
                     </Select>
-                    {hasSiswaRow && (
-                      <>
+                    {hasExtraCol && (
+                      row.role === "siswa" ? (
                         <Select
-                          value={row.role === "siswa" ? row.kelas_id : "__none__"}
-                          onValueChange={(v) => updateRow(row.id, "kelas_id", v)}
-                          disabled={row.role !== "siswa"}
+                          value={row.kelas_id || "__none__"}
+                          onValueChange={(v) => updateRow(row.id, "kelas_id", v === "__none__" ? "" : v)}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Pilih..." />
+                            <SelectValue placeholder="Pilih kelas..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {row.role !== "siswa" && (
-                              <SelectItem value="__none__" disabled>-</SelectItem>
-                            )}
+                            <SelectItem value="__none__" disabled>Pilih kelas...</SelectItem>
                             {(kelasList || []).map((k) => (
                               <SelectItem key={k.id} value={String(k.id)}>
                                 {k.nama_kelas}
@@ -558,13 +581,13 @@ export default function AkunPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                      ) : (
                         <Input
-                          placeholder="NIS"
-                          value={row.role === "siswa" ? row.nis : ""}
-                          disabled={row.role !== "siswa"}
-                          onChange={(e) => updateRow(row.id, "nis", e.target.value)}
+                          placeholder="NIP (opsional)"
+                          value={row.nip}
+                          onChange={(e) => updateRow(row.id, "nip", e.target.value)}
                         />
-                      </>
+                      )
                     )}
                     <Button
                       variant="ghost"

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { 
   useListGuru, 
-  useCreateGuru, 
   useUpdateGuru, 
   useDeleteGuru,
   useListMataPelajaran,
@@ -9,7 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import { Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +23,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -70,7 +68,6 @@ export default function GuruPage() {
   const { data: guruData, isLoading } = useListGuru({ search });
   const { data: mapelData } = useListMataPelajaran();
 
-  const createMutation = useCreateGuru();
   const updateMutation = useUpdateGuru();
   const deleteMutation = useDeleteGuru();
 
@@ -87,7 +84,7 @@ export default function GuruPage() {
   });
 
   const onSubmit = (values: GuruFormValues) => {
-    // Only send non-empty optional fields as null or undefined instead of empty string if needed
+    if (!editingGuru) return;
     const payload = {
       ...values,
       nip: values.nip || null,
@@ -95,31 +92,17 @@ export default function GuruPage() {
       no_hp: values.no_hp || null,
       email: values.email || null,
     };
-
-    if (editingGuru) {
-      updateMutation.mutate(
-        { id: editingGuru.id, data: payload },
-        {
-          onSuccess: () => {
-            toast({ title: "Guru berhasil diperbarui" });
-            setIsCreateOpen(false);
-            setEditingGuru(null);
-            queryClient.invalidateQueries({ queryKey: getListGuruQueryKey() });
-          },
-        }
-      );
-    } else {
-      createMutation.mutate(
-        { data: payload },
-        {
-          onSuccess: () => {
-            toast({ title: "Guru berhasil ditambahkan" });
-            setIsCreateOpen(false);
-            queryClient.invalidateQueries({ queryKey: getListGuruQueryKey() });
-          },
-        }
-      );
-    }
+    updateMutation.mutate(
+      { id: editingGuru.id, data: payload },
+      {
+        onSuccess: () => {
+          toast({ title: "Guru berhasil diperbarui" });
+          setIsCreateOpen(false);
+          setEditingGuru(null);
+          queryClient.invalidateQueries({ queryKey: getListGuruQueryKey() });
+        },
+      }
+    );
   };
 
   const openEdit = (guru: any) => {
@@ -159,15 +142,9 @@ export default function GuruPage() {
             form.reset();
           }
         }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Guru
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editingGuru ? "Edit Guru" : "Tambah Guru Baru"}</DialogTitle>
+              <DialogTitle>Edit Guru</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -255,8 +232,8 @@ export default function GuruPage() {
                   )}
                 </div>
                 <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Simpan
                   </Button>
                 </div>

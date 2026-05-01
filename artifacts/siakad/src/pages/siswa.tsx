@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { 
   useListSiswa, 
-  useCreateSiswa, 
   useUpdateSiswa, 
   useDeleteSiswa, 
   useListKelas,
@@ -10,7 +9,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import { Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +24,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -50,12 +48,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const siswaSchema = z.object({
-  nis: z.string().min(1, "NIS diperlukan"),
-  nisn: z.string().min(1, "NISN diperlukan"),
+  nis: z.string().optional(),
+  nisn: z.string().optional(),
   nama: z.string().min(1, "Nama diperlukan"),
   kelas_id: z.string().optional(),
   jenis_kelamin: z.enum(["L", "P"]),
-  tanggal_lahir: z.string().min(1, "Tanggal Lahir diperlukan"),
+  tanggal_lahir: z.string().optional(),
   alamat: z.string().optional(),
   no_hp_ortu: z.string().optional(),
 });
@@ -74,7 +72,6 @@ export default function SiswaPage() {
   const { data: siswaData, isLoading } = useListSiswa({ search, page, limit: 10 });
   const { data: kelasData } = useListKelas();
 
-  const createMutation = useCreateSiswa();
   const updateMutation = useUpdateSiswa();
   const deleteMutation = useDeleteSiswa();
 
@@ -93,41 +90,29 @@ export default function SiswaPage() {
   });
 
   const onSubmit = (values: SiswaFormValues) => {
-    if (editingSiswa) {
-      updateMutation.mutate(
-        { id: editingSiswa.id, data: values },
-        {
-          onSuccess: () => {
-            toast({ title: "Siswa berhasil diperbarui" });
-            setIsCreateOpen(false);
-            setEditingSiswa(null);
-            queryClient.invalidateQueries({ queryKey: getListSiswaQueryKey() });
-          },
-        }
-      );
-    } else {
-      createMutation.mutate(
-        { data: values },
-        {
-          onSuccess: () => {
-            toast({ title: "Siswa berhasil ditambahkan" });
-            setIsCreateOpen(false);
-            queryClient.invalidateQueries({ queryKey: getListSiswaQueryKey() });
-          },
-        }
-      );
-    }
+    if (!editingSiswa) return;
+    updateMutation.mutate(
+      { id: editingSiswa.id, data: values },
+      {
+        onSuccess: () => {
+          toast({ title: "Siswa berhasil diperbarui" });
+          setIsCreateOpen(false);
+          setEditingSiswa(null);
+          queryClient.invalidateQueries({ queryKey: getListSiswaQueryKey() });
+        },
+      }
+    );
   };
 
   const openEdit = (siswa: any) => {
     setEditingSiswa(siswa);
     form.reset({
-      nis: siswa.nis,
-      nisn: siswa.nisn,
+      nis: siswa.nis || "",
+      nisn: siswa.nisn || "",
       nama: siswa.nama,
       kelas_id: siswa.kelas_id || "",
-      jenis_kelamin: siswa.jenis_kelamin,
-      tanggal_lahir: siswa.tanggal_lahir.split("T")[0],
+      jenis_kelamin: siswa.jenis_kelamin || "L",
+      tanggal_lahir: siswa.tanggal_lahir ? siswa.tanggal_lahir.split("T")[0] : "",
       alamat: siswa.alamat || "",
       no_hp_ortu: siswa.no_hp_ortu || "",
     });
@@ -158,15 +143,9 @@ export default function SiswaPage() {
             form.reset();
           }
         }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Siswa
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingSiswa ? "Edit Siswa" : "Tambah Siswa Baru"}</DialogTitle>
+              <DialogTitle>Edit Siswa</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -284,8 +263,8 @@ export default function SiswaPage() {
                   />
                 </div>
                 <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Simpan
                   </Button>
                 </div>

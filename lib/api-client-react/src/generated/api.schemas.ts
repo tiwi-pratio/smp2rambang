@@ -41,6 +41,8 @@ export interface CreateAccountBody {
   kelas_id?: string;
   /** NIS siswa (opsional) */
   nis?: string;
+  /** NIP guru (opsional, jika role=guru) */
+  nip?: string;
 }
 
 export interface BulkCreateAccountsBody {
@@ -75,6 +77,7 @@ export interface AccountItem {
   created_at?: string;
   kelas_nama?: string;
   siswa_id?: string;
+  guru_id?: string;
 }
 
 export type UserProfileRole =

@@ -64,6 +64,7 @@ export const ListAccountsResponseItem = zod.object({
   created_at: zod.string().optional(),
   kelas_nama: zod.string().optional(),
   siswa_id: zod.string().optional(),
+  guru_id: zod.string().optional(),
 });
 export const ListAccountsResponse = zod.array(ListAccountsResponseItem);
 
@@ -77,6 +78,7 @@ export const CreateAccountBody = zod.object({
   role: zod.enum(["guru", "siswa"]),
   kelas_id: zod.string().optional().describe("Wajib jika role=siswa"),
   nis: zod.string().optional().describe("NIS siswa (opsional)"),
+  nip: zod.string().optional().describe("NIP guru (opsional, jika role=guru)"),
 });
 
 /**
@@ -93,6 +95,10 @@ export const BulkCreateAccountsBody = zod.object({
         role: zod.enum(["guru", "siswa"]),
         kelas_id: zod.string().optional().describe("Wajib jika role=siswa"),
         nis: zod.string().optional().describe("NIS siswa (opsional)"),
+        nip: zod
+          .string()
+          .optional()
+          .describe("NIP guru (opsional, jika role=guru)"),
       }),
     )
     .min(1),
