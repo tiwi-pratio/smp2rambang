@@ -929,6 +929,12 @@ components:
         role:
           type: string
           enum: [guru, siswa]
+        kelas_id:
+          type: string
+          description: Wajib jika role=siswa
+        nis:
+          type: string
+          description: NIS siswa (opsional)
       required:
         - email
         - password
@@ -980,6 +986,10 @@ components:
           type: string
           enum: [admin, guru, siswa]
         created_at:
+          type: string
+        kelas_nama:
+          type: string
+        siswa_id:
           type: string
       required:
         - supabase_id

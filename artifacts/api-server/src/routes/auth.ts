@@ -4,6 +4,16 @@ import { requireAuth, requireRole, AuthenticatedRequest } from "../middlewares/a
 
 const router = Router();
 
+async function createSiswaRecord(full_name: string, kelas_id?: string, nis?: string) {
+  const { data, error } = await supabase
+    .from("siswa")
+    .insert({ nama: full_name, kelas_id: kelas_id || null, nis: nis || null })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message || "Gagal membuat data siswa");
+  return data.id as string;
+}
+
 router.post("/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -67,11 +77,54 @@ router.get("/auth/accounts", requireAuth, requireRole("admin"), async (_req: Aut
     return;
   }
 
-  res.json(profiles || []);
+  const profileList = profiles || [];
+
+  // For siswa accounts, fetch kelas info via app_metadata (siswa_id stored there)
+  const { data: authUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  const authUserMap: Record<string, { siswa_id?: string }> = {};
+  for (const u of authUsers?.users || []) {
+    authUserMap[u.id] = { siswa_id: u.app_metadata?.siswa_id };
+  }
+
+  // Collect siswa IDs to enrich
+  const siswaIds = profileList
+    .map((p) => authUserMap[p.supabase_id]?.siswa_id)
+    .filter(Boolean) as string[];
+
+  const kelasMap: Record<string, string> = {};
+  if (siswaIds.length > 0) {
+    const { data: siswaList } = await supabase
+      .from("siswa")
+      .select("id, kelas_id")
+      .in("id", siswaIds);
+    const kelasIds = [...new Set((siswaList || []).map((s) => s.kelas_id).filter(Boolean))];
+    if (kelasIds.length > 0) {
+      const { data: kelasList } = await supabase
+        .from("kelas")
+        .select("id, nama_kelas")
+        .in("id", kelasIds);
+      const kelasById: Record<string, string> = {};
+      for (const k of kelasList || []) kelasById[k.id] = k.nama_kelas;
+      for (const s of siswaList || []) {
+        if (s.kelas_id) kelasMap[s.id] = kelasById[s.kelas_id] || "";
+      }
+    }
+  }
+
+  const enriched = profileList.map((p) => {
+    const siswa_id = authUserMap[p.supabase_id]?.siswa_id;
+    return {
+      ...p,
+      siswa_id: siswa_id || null,
+      kelas_nama: siswa_id ? (kelasMap[siswa_id] || null) : null,
+    };
+  });
+
+  res.json(enriched);
 });
 
 router.post("/auth/create-account", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res) => {
-  const { email, password, full_name, role } = req.body;
+  const { email, password, full_name, role, kelas_id, nis } = req.body;
 
   if (!email || !password || !full_name || !role) {
     res.status(400).json({ error: "Bad Request", message: "Semua field wajib diisi" });
@@ -80,6 +133,11 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
 
   if (!["guru", "siswa"].includes(role)) {
     res.status(400).json({ error: "Bad Request", message: "Role harus guru atau siswa" });
+    return;
+  }
+
+  if (role === "siswa" && !kelas_id) {
+    res.status(400).json({ error: "Bad Request", message: "Kelas wajib dipilih untuk akun siswa" });
     return;
   }
 
@@ -94,13 +152,26 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
     return;
   }
 
+  // For siswa: create siswa record first
+  let siswaId: string | undefined;
+  if (role === "siswa") {
+    try {
+      siswaId = await createSiswaRecord(full_name, kelas_id, nis);
+    } catch (e: any) {
+      res.status(400).json({ error: "Bad Request", message: e.message });
+      return;
+    }
+  }
+
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
+    app_metadata: siswaId ? { siswa_id: siswaId } : {},
   });
 
   if (authError || !authData.user) {
+    if (siswaId) await supabase.from("siswa").delete().eq("id", siswaId);
     res.status(400).json({ error: "Bad Request", message: authError?.message || "Gagal membuat akun" });
     return;
   }
@@ -114,6 +185,7 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
 
   if (profileError) {
     await supabase.auth.admin.deleteUser(authData.user.id);
+    if (siswaId) await supabase.from("siswa").delete().eq("id", siswaId);
     res.status(400).json({ error: "Bad Request", message: profileError.message });
     return;
   }
@@ -133,7 +205,7 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
   const failed: { email: string; reason: string }[] = [];
 
   for (const account of accounts) {
-    const { email, password, full_name, role } = account;
+    const { email, password, full_name, role, kelas_id, nis } = account;
 
     if (!email || !password || !full_name || !role) {
       failed.push({ email: email || "(kosong)", reason: "Semua field wajib diisi" });
@@ -142,6 +214,11 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
 
     if (!["guru", "siswa"].includes(role)) {
       failed.push({ email, reason: "Role harus guru atau siswa" });
+      continue;
+    }
+
+    if (role === "siswa" && !kelas_id) {
+      failed.push({ email, reason: "Kelas wajib dipilih untuk akun siswa" });
       continue;
     }
 
@@ -156,13 +233,25 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
       continue;
     }
 
+    let siswaId: string | undefined;
+    if (role === "siswa") {
+      try {
+        siswaId = await createSiswaRecord(full_name, kelas_id, nis);
+      } catch (e: any) {
+        failed.push({ email, reason: e.message });
+        continue;
+      }
+    }
+
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
+      app_metadata: siswaId ? { siswa_id: siswaId } : {},
     });
 
     if (authError || !authData.user) {
+      if (siswaId) await supabase.from("siswa").delete().eq("id", siswaId);
       failed.push({ email, reason: authError?.message || "Gagal membuat akun" });
       continue;
     }
@@ -176,6 +265,7 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
 
     if (profileError) {
       await supabase.auth.admin.deleteUser(authData.user.id);
+      if (siswaId) await supabase.from("siswa").delete().eq("id", siswaId);
       failed.push({ email, reason: profileError.message });
       continue;
     }
@@ -203,6 +293,13 @@ router.delete("/auth/delete-account/:supabase_id", requireAuth, requireRole("adm
   if (profile.role === "admin") {
     res.status(403).json({ error: "Forbidden", message: "Akun admin tidak dapat dihapus" });
     return;
+  }
+
+  // If siswa, also delete the linked siswa record
+  const { data: authUser } = await supabase.auth.admin.getUserById(supabase_id);
+  const siswaId = authUser?.user?.app_metadata?.siswa_id;
+  if (siswaId) {
+    await supabase.from("siswa").delete().eq("id", siswaId);
   }
 
   await supabase.from("profiles").delete().eq("supabase_id", supabase_id);

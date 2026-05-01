@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: string;
     full_name: string;
+    siswa_id?: string;
   };
 }
 
@@ -48,6 +49,7 @@ export async function requireAuth(
     email: user.email!,
     role: profile.role,
     full_name: profile.full_name,
+    siswa_id: user.app_metadata?.siswa_id,
   };
 
   next();

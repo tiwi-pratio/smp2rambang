@@ -37,6 +37,10 @@ export interface CreateAccountBody {
   password: string;
   full_name: string;
   role: CreateAccountBodyRole;
+  /** Wajib jika role=siswa */
+  kelas_id?: string;
+  /** NIS siswa (opsional) */
+  nis?: string;
 }
 
 export interface BulkCreateAccountsBody {
@@ -69,6 +73,8 @@ export interface AccountItem {
   full_name: string;
   role: AccountItemRole;
   created_at?: string;
+  kelas_nama?: string;
+  siswa_id?: string;
 }
 
 export type UserProfileRole =

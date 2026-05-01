@@ -27,12 +27,13 @@ Sistem Informasi Akademik untuk SMP Negeri 2 Rambang.
 8. **Absensi**: Input absensi per kelas/mapel, rekap bulanan
 9. **Nilai**: Input nilai harian/UTS/UAS, auto-hitung nilai akhir (40%/30%/30%)
 10. **Raport Digital**: Generate raport per siswa/semester dengan format printable
+11. **Manajemen Akun**: Buat akun login siswa/guru (single atau bulk). Untuk siswa, otomatis membuat data siswa + memilih kelas. Link siswa↔akun disimpan via Supabase `app_metadata.siswa_id` (tanpa perubahan skema DB)
 
 ## Database (Supabase)
 
 Tabel: `profiles`, `guru`, `siswa`, `kelas`, `mata_pelajaran`, `jadwal`, `absensi`, `nilai`
 
-Catatan: Tabel menggunakan integer ID (bukan UUID). Tabel `profiles` menggunakan kolom `supabase_id` untuk menyimpan UUID dari Supabase Auth.
+Catatan: Tabel menggunakan integer ID (bukan UUID). Tabel `profiles` menggunakan kolom `supabase_id` untuk menyimpan UUID dari Supabase Auth. Link siswa↔akun disimpan di Supabase Auth `app_metadata.siswa_id` (middleware membaca ini ke `req.user.siswa_id`).
 
 ## Environment Variables
 

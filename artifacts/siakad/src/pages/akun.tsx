@@ -5,6 +5,7 @@ import {
   useCreateAccount,
   useDeleteAccount,
   useBulkCreateAccounts,
+  useListKelas,
   getListAccountsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,8 @@ type BulkRow = {
   email: string;
   password: string;
   role: "guru" | "siswa";
+  kelas_id: string;
+  nis: string;
 };
 
 let rowIdCounter = 1;
@@ -90,6 +93,8 @@ const emptyRow = (): BulkRow => ({
   email: "",
   password: "",
   role: "siswa",
+  kelas_id: "",
+  nis: "",
 });
 
 export default function AkunPage() {
@@ -97,6 +102,7 @@ export default function AkunPage() {
   const { toast } = useToast();
 
   const { data: accounts, isLoading } = useListAccounts();
+  const { data: kelasList } = useListKelas();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openBulk, setOpenBulk] = useState(false);
@@ -110,6 +116,8 @@ export default function AkunPage() {
     password: "",
     full_name: "",
     role: "siswa" as "guru" | "siswa",
+    kelas_id: "",
+    nis: "",
   });
 
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyRow()]);
@@ -124,7 +132,7 @@ export default function AkunPage() {
         queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
         toast({ title: "Berhasil", description: "Akun berhasil dibuat" });
         setOpenCreate(false);
-        setForm({ email: "", password: "", full_name: "", role: "siswa" });
+        setForm({ email: "", password: "", full_name: "", role: "siswa", kelas_id: "", nis: "" });
       },
       onError: (err: any) => {
         toast({
@@ -171,14 +179,19 @@ export default function AkunPage() {
 
   const handleCreate = () => {
     if (!form.email || !form.password || !form.full_name) {
-      toast({
-        title: "Error",
-        description: "Semua field wajib diisi",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Semua field wajib diisi", variant: "destructive" });
       return;
     }
-    createMutation.mutate({ data: form });
+    if (form.role === "siswa" && !form.kelas_id) {
+      toast({ title: "Error", description: "Pilih kelas untuk akun siswa", variant: "destructive" });
+      return;
+    }
+    const payload: any = { email: form.email, password: form.password, full_name: form.full_name, role: form.role };
+    if (form.role === "siswa") {
+      payload.kelas_id = form.kelas_id;
+      if (form.nis) payload.nis = form.nis;
+    }
+    createMutation.mutate({ data: payload });
   };
 
   const handleDelete = () => {
@@ -187,18 +200,18 @@ export default function AkunPage() {
   };
 
   const handleBulkSubmit = () => {
-    const validRows = bulkRows.filter(
-      (r) => r.email || r.full_name || r.password,
-    );
+    const validRows = bulkRows.filter((r) => r.email || r.full_name || r.password);
     if (validRows.length === 0) {
-      toast({
-        title: "Error",
-        description: "Tambahkan minimal satu akun",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Tambahkan minimal satu akun", variant: "destructive" });
       return;
     }
-    bulkMutation.mutate({ data: { accounts: validRows } });
+    const accounts = validRows.map((r) => {
+      const acc: any = { email: r.email, password: r.password, full_name: r.full_name, role: r.role };
+      if (r.role === "siswa" && r.kelas_id) acc.kelas_id = r.kelas_id;
+      if (r.role === "siswa" && r.nis) acc.nis = r.nis;
+      return acc;
+    });
+    bulkMutation.mutate({ data: { accounts } });
   };
 
   const addRow = () => setBulkRows((rows) => [...rows, emptyRow()]);
@@ -218,6 +231,8 @@ export default function AkunPage() {
     bulkMutation.reset();
   };
 
+  const hasSiswaRow = bulkRows.some((r) => r.role === "siswa");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -226,20 +241,14 @@ export default function AkunPage() {
             <KeyRound className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Manajemen Akun
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">Manajemen Akun</h1>
             <p className="text-sm text-muted-foreground">
               Kelola akun login pengguna (guru & siswa)
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setOpenBulk(true)}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={() => setOpenBulk(true)} className="gap-2">
             <Users className="h-4 w-4" />
             Tambah Banyak Akun
           </Button>
@@ -257,13 +266,10 @@ export default function AkunPage() {
           <p className="font-medium">Cara mendaftarkan siswa atau guru:</p>
           <ol className="mt-1 ml-4 list-decimal space-y-0.5">
             <li>
-              Tambah data siswa/guru terlebih dahulu di halaman{" "}
-              <strong>Siswa</strong> atau <strong>Guru</strong>
+              Klik <strong>Buat Akun Baru</strong> dan isi data. Untuk siswa, pilih kelas secara otomatis
             </li>
-            <li>Buat akun login di halaman ini dengan email dan password</li>
-            <li>
-              Bagikan email & password kepada siswa/guru yang bersangkutan
-            </li>
+            <li>Data siswa akan dibuat otomatis di halaman Siswa</li>
+            <li>Bagikan email &amp; password kepada siswa/guru yang bersangkutan</li>
           </ol>
         </div>
       </div>
@@ -271,13 +277,9 @@ export default function AkunPage() {
       {/* Account list */}
       <div className="rounded-xl border bg-card">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">
-            Memuat data akun...
-          </div>
+          <div className="p-8 text-center text-muted-foreground">Memuat data akun...</div>
         ) : !accounts?.length ? (
-          <div className="p-8 text-center text-muted-foreground">
-            Belum ada akun terdaftar
-          </div>
+          <div className="p-8 text-center text-muted-foreground">Belum ada akun terdaftar</div>
         ) : (
           <div className="divide-y">
             {accounts.map((acc) => (
@@ -293,6 +295,11 @@ export default function AkunPage() {
                     <div className="font-medium truncate">{acc.full_name}</div>
                     <div className="text-sm text-muted-foreground truncate">
                       {acc.email}
+                      {acc.kelas_nama && (
+                        <span className="ml-2 text-xs text-muted-foreground/70">
+                          · {acc.kelas_nama}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -304,10 +311,7 @@ export default function AkunPage() {
                       size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
                       onClick={() =>
-                        setDeleteTarget({
-                          id: acc.supabase_id,
-                          name: acc.full_name,
-                        })
+                        setDeleteTarget({ id: acc.supabase_id, name: acc.full_name })
                       }
                     >
                       <Trash2 className="h-4 w-4" />
@@ -353,9 +357,7 @@ export default function AkunPage() {
                 type="password"
                 placeholder="Minimal 8 karakter"
                 value={form.password}
-                onChange={(e) =>
-                  setForm({ ...form, password: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
@@ -363,7 +365,7 @@ export default function AkunPage() {
               <Select
                 value={form.role}
                 onValueChange={(v) =>
-                  setForm({ ...form, role: v as "guru" | "siswa" })
+                  setForm({ ...form, role: v as "guru" | "siswa", kelas_id: "", nis: "" })
                 }
               >
                 <SelectTrigger>
@@ -375,15 +377,48 @@ export default function AkunPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {form.role === "siswa" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>
+                    Kelas <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={form.kelas_id}
+                    onValueChange={(v) => setForm({ ...form, kelas_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih kelas..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(kelasList || []).map((k) => (
+                        <SelectItem key={k.id} value={String(k.id)}>
+                          {k.nama_kelas}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nis">
+                    NIS <span className="text-muted-foreground text-xs">(opsional)</span>
+                  </Label>
+                  <Input
+                    id="nis"
+                    placeholder="Nomor Induk Siswa"
+                    value={form.nis}
+                    onChange={(e) => setForm({ ...form, nis: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setOpenCreate(false)}>
               Batal
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={createMutation.isPending}
-            >
+            <Button onClick={handleCreate} disabled={createMutation.isPending}>
               {createMutation.isPending ? "Membuat..." : "Buat Akun"}
             </Button>
           </DialogFooter>
@@ -392,7 +427,7 @@ export default function AkunPage() {
 
       {/* Bulk create dialog */}
       <Dialog open={openBulk} onOpenChange={handleCloseBulk}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -401,7 +436,6 @@ export default function AkunPage() {
           </DialogHeader>
 
           {bulkResult ? (
-            /* Result screen */
             <div className="flex-1 overflow-y-auto space-y-4 py-2">
               <div className="flex items-center gap-3 p-4 rounded-lg bg-emerald-50 border border-emerald-200">
                 <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
@@ -427,11 +461,9 @@ export default function AkunPage() {
                   </div>
                   <div className="divide-y divide-destructive/10">
                     {bulkResult.failed.map((f, i) => (
-                      <div key={i} className="px-4 py-2.5 flex items-start gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{f.email}</p>
-                          <p className="text-xs text-muted-foreground">{f.reason}</p>
-                        </div>
+                      <div key={i} className="px-4 py-2.5">
+                        <p className="text-sm font-medium">{f.email}</p>
+                        <p className="text-xs text-muted-foreground">{f.reason}</p>
                       </div>
                     ))}
                   </div>
@@ -439,51 +471,57 @@ export default function AkunPage() {
               )}
             </div>
           ) : (
-            /* Input screen */
             <div className="flex-1 overflow-y-auto space-y-3 py-2">
               <p className="text-sm text-muted-foreground">
-                Isi data akun yang ingin dibuat. Klik{" "}
-                <strong>+ Tambah Baris</strong> untuk menambah lebih banyak.
+                Isi data akun yang ingin dibuat. Untuk siswa, pilih kelas di kolom Kelas.
               </p>
 
-              {/* Table header */}
-              <div className="grid grid-cols-[1fr_1fr_1fr_140px_36px] gap-2 px-1">
+              <div
+                className={`grid gap-2 px-1 ${
+                  hasSiswaRow
+                    ? "grid-cols-[1fr_1fr_1fr_120px_140px_100px_36px]"
+                    : "grid-cols-[1fr_1fr_1fr_140px_36px]"
+                }`}
+              >
                 <span className="text-xs font-medium text-muted-foreground">Nama Lengkap</span>
                 <span className="text-xs font-medium text-muted-foreground">Email</span>
                 <span className="text-xs font-medium text-muted-foreground">Password</span>
                 <span className="text-xs font-medium text-muted-foreground">Role</span>
+                {hasSiswaRow && (
+                  <>
+                    <span className="text-xs font-medium text-muted-foreground">Kelas</span>
+                    <span className="text-xs font-medium text-muted-foreground">NIS</span>
+                  </>
+                )}
                 <span />
               </div>
 
-              {/* Rows */}
               <div className="space-y-2">
                 {bulkRows.map((row, idx) => (
                   <div
                     key={row.id}
-                    className="grid grid-cols-[1fr_1fr_1fr_140px_36px] gap-2 items-center"
+                    className={`grid gap-2 items-center ${
+                      hasSiswaRow
+                        ? "grid-cols-[1fr_1fr_1fr_120px_140px_100px_36px]"
+                        : "grid-cols-[1fr_1fr_1fr_140px_36px]"
+                    }`}
                   >
                     <Input
                       placeholder="Nama lengkap"
                       value={row.full_name}
-                      onChange={(e) =>
-                        updateRow(row.id, "full_name", e.target.value)
-                      }
+                      onChange={(e) => updateRow(row.id, "full_name", e.target.value)}
                     />
                     <Input
                       type="email"
                       placeholder="email@contoh.com"
                       value={row.email}
-                      onChange={(e) =>
-                        updateRow(row.id, "email", e.target.value)
-                      }
+                      onChange={(e) => updateRow(row.id, "email", e.target.value)}
                     />
                     <Input
                       type="text"
                       placeholder="Password"
                       value={row.password}
-                      onChange={(e) =>
-                        updateRow(row.id, "password", e.target.value)
-                      }
+                      onChange={(e) => updateRow(row.id, "password", e.target.value)}
                     />
                     <Select
                       value={row.role}
@@ -499,6 +537,35 @@ export default function AkunPage() {
                         <SelectItem value="guru">Guru</SelectItem>
                       </SelectContent>
                     </Select>
+                    {hasSiswaRow && (
+                      <>
+                        <Select
+                          value={row.role === "siswa" ? row.kelas_id : "__none__"}
+                          onValueChange={(v) => updateRow(row.id, "kelas_id", v)}
+                          disabled={row.role !== "siswa"}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {row.role !== "siswa" && (
+                              <SelectItem value="__none__" disabled>-</SelectItem>
+                            )}
+                            {(kelasList || []).map((k) => (
+                              <SelectItem key={k.id} value={String(k.id)}>
+                                {k.nama_kelas}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="NIS"
+                          value={row.role === "siswa" ? row.nis : ""}
+                          disabled={row.role !== "siswa"}
+                          onChange={(e) => updateRow(row.id, "nis", e.target.value)}
+                        />
+                      </>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -532,10 +599,7 @@ export default function AkunPage() {
                 <Button variant="outline" onClick={handleCloseBulk}>
                   Batal
                 </Button>
-                <Button
-                  onClick={handleBulkSubmit}
-                  disabled={bulkMutation.isPending}
-                >
+                <Button onClick={handleBulkSubmit} disabled={bulkMutation.isPending}>
                   {bulkMutation.isPending
                     ? `Membuat ${bulkRows.length} akun...`
                     : `Buat ${bulkRows.length} Akun`}
@@ -555,9 +619,9 @@ export default function AkunPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Akun</AlertDialogTitle>
             <AlertDialogDescription>
-              Yakin ingin menghapus akun{" "}
-              <strong>{deleteTarget?.name}</strong>? Pengguna ini tidak akan
-              bisa login lagi. Tindakan ini tidak dapat dibatalkan.
+              Yakin ingin menghapus akun <strong>{deleteTarget?.name}</strong>?
+              Pengguna ini tidak akan bisa login lagi, dan data siswa yang terhubung
+              juga akan dihapus. Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
