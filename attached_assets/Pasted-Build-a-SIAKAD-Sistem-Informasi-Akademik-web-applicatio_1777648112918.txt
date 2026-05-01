@@ -1,0 +1,107 @@
+Build a SIAKAD (Sistem Informasi Akademik) web application for "SMP Negeri 2 Rambang" using the following specifications:
+
+## Tech Stack
+- Frontend: HTML, CSS, JavaScript (Vanilla or React)
+- Backend: Node.js with Express.js
+- Database: Supabase (PostgreSQL)
+- Authentication: Supabase Auth
+
+## Color Theme
+- Primary: Navy Blue (#1B2A6B or #0A1F6B)
+- Secondary/Background: White (#FFFFFF)
+- Accent: Light Navy / Sky Blue (#4A6FA5)
+- Text: Dark Navy for headings, gray for body text
+- Use clean, professional, minimalist design
+
+## Application Name
+"SIAKAD - SMP Negeri 2 Rambang"
+
+---
+
+## Core Features to Build
+
+### 1. Authentication & Role-Based Access
+- Login page with school branding (logo placeholder, school name)
+- 3 roles: Admin, Guru (Teacher), Siswa (Student)
+- Each role has different dashboard and access
+- Logout functionality
+
+### 2. Dashboard
+- Admin Dashboard: total siswa, total guru, total kelas, recent activity
+- Guru Dashboard: jadwal mengajar, kelas yang diajar
+- Siswa Dashboard: jadwal pelajaran, nilai terbaru, info absensi
+
+### 3. Manajemen Data Siswa (Admin only)
+- List semua siswa dengan search & filter per kelas
+- Form tambah siswa baru (Nama, NIS, NISN, Kelas, Jenis Kelamin, Tanggal Lahir, Alamat, No HP Ortu)
+- Edit & hapus data siswa
+- Detail profil siswa
+
+### 4. Manajemen Kelas & Mata Pelajaran (Admin only)
+- CRUD data kelas (ex: VII-A, VIII-B, IX-C)
+- CRUD mata pelajaran (Matematika, B.Indonesia, IPA, dll)
+- Assign guru ke mata pelajaran
+
+### 5. Absensi
+- Guru bisa input absensi per kelas per hari
+- Status: Hadir, Izin, Sakit, Alfa
+- Rekap absensi per siswa per bulan
+- Siswa bisa lihat rekap absensi sendiri
+
+### 6. Manajemen Nilai
+- Guru input nilai siswa (Nilai Harian, UTS, UAS)
+- Otomatis hitung nilai akhir (formula: 40% harian + 30% UTS + 30% UAS)
+- Siswa bisa lihat nilai per mata pelajaran
+- Admin bisa lihat semua nilai
+
+### 7. Raport Digital (Simple)
+- Generate rekap nilai semua mapel per siswa per semester
+- Tampilkan dalam format tabel yang rapi dan printable
+
+---
+
+## Database Schema (Supabase)
+
+Create these tables:
+
+**users** (handled by Supabase Auth + profiles table)
+- id, email, role (admin/guru/siswa), full_name, created_at
+
+**siswa**
+- id, user_id (ref users), nis, nisn, nama, kelas_id, jenis_kelamin, tanggal_lahir, alamat, no_hp_ortu, foto_url, created_at
+
+**guru**
+- id, user_id (ref users), nip, nama, mata_pelajaran_id, no_hp, created_at
+
+**kelas**
+- id, nama_kelas (VII-A, dll), tingkat (7/8/9), wali_kelas_id, tahun_ajaran
+
+**mata_pelajaran**
+- id, nama_mapel, kode_mapel, guru_id
+
+**jadwal**
+- id, kelas_id, mata_pelajaran_id, guru_id, hari, jam_mulai, jam_selesai
+
+**absensi**
+- id, siswa_id, mata_pelajaran_id, tanggal, status (hadir/izin/sakit/alfa), keterangan
+
+**nilai**
+- id, siswa_id, mata_pelajaran_id, semester, nilai_harian, nilai_uts, nilai_uas, nilai_akhir, tahun_ajaran
+
+---
+
+## UI/UX Requirements
+- Responsive design (mobile friendly)
+- Sidebar navigation with school name & logo placeholder at top
+- Active state on current menu item
+- Clean table with alternating row colors
+- Modal for form tambah/edit data
+- Toast notification for success/error actions
+- Loading state saat fetch data
+- Consistent navy & white color throughout all pages
+
+## Additional Notes
+- Seed the database with sample data: 3 kelas, 5 guru, 15 siswa, beberapa nilai & absensi
+- Add a simple landing/login page with school name "SMP Negeri 2 Rambang" and tagline "Sistem Informasi Akademik"
+- Make sure Supabase environment variables are stored in .env file
+- Comment the code in Bahasa Indonesia

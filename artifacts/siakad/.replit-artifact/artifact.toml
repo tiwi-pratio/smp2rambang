@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "SIAKAD - SMP Negeri 2 Rambang"
+version = "1.0.0"
+id = "artifacts/siakad"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19230
+
+[services.development]
+run = "pnpm --filter @workspace/siakad run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/siakad", "run", "build" ]
+publicDir = "artifacts/siakad/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19230"
+BASE_PATH = "/"

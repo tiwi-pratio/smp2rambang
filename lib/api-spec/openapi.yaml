@@ -1,0 +1,1532 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: SIAKAD - Sistem Informasi Akademik SMP Negeri 2 Rambang
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: siswa
+    description: Manajemen data siswa
+  - name: guru
+    description: Manajemen data guru
+  - name: kelas
+    description: Manajemen kelas
+  - name: mata_pelajaran
+    description: Manajemen mata pelajaran
+  - name: jadwal
+    description: Jadwal pelajaran
+  - name: absensi
+    description: Manajemen absensi
+  - name: nilai
+    description: Manajemen nilai
+  - name: dashboard
+    description: Dashboard statistik
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login pengguna
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Email atau password salah
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout pengguna
+      responses:
+        "200":
+          description: Logout berhasil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Ambil data pengguna saat ini
+      responses:
+        "200":
+          description: Data pengguna
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # DASHBOARD
+  /dashboard/admin-stats:
+    get:
+      operationId: getAdminStats
+      tags: [dashboard]
+      summary: Statistik untuk admin dashboard
+      responses:
+        "200":
+          description: Statistik admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /dashboard/guru-stats:
+    get:
+      operationId: getGuruStats
+      tags: [dashboard]
+      summary: Statistik untuk guru dashboard
+      responses:
+        "200":
+          description: Statistik guru
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuruStats"
+
+  /dashboard/siswa-stats:
+    get:
+      operationId: getSiswaStats
+      tags: [dashboard]
+      summary: Statistik untuk siswa dashboard
+      responses:
+        "200":
+          description: Statistik siswa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiswaStats"
+
+  # SISWA
+  /siswa:
+    get:
+      operationId: listSiswa
+      tags: [siswa]
+      summary: Daftar semua siswa
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: kelas_id
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Daftar siswa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiswaListResponse"
+    post:
+      operationId: createSiswa
+      tags: [siswa]
+      summary: Tambah siswa baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSiswaBody"
+      responses:
+        "201":
+          description: Siswa berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Siswa"
+
+  /siswa/{id}:
+    get:
+      operationId: getSiswa
+      tags: [siswa]
+      summary: Detail siswa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Data siswa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Siswa"
+    put:
+      operationId: updateSiswa
+      tags: [siswa]
+      summary: Update data siswa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSiswaBody"
+      responses:
+        "200":
+          description: Data siswa diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Siswa"
+    delete:
+      operationId: deleteSiswa
+      tags: [siswa]
+      summary: Hapus siswa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Siswa berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # GURU
+  /guru:
+    get:
+      operationId: listGuru
+      tags: [guru]
+      summary: Daftar semua guru
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daftar guru
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Guru"
+    post:
+      operationId: createGuru
+      tags: [guru]
+      summary: Tambah guru baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGuruBody"
+      responses:
+        "201":
+          description: Guru berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guru"
+
+  /guru/{id}:
+    get:
+      operationId: getGuru
+      tags: [guru]
+      summary: Detail guru
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Data guru
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guru"
+    put:
+      operationId: updateGuru
+      tags: [guru]
+      summary: Update data guru
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGuruBody"
+      responses:
+        "200":
+          description: Data guru diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guru"
+    delete:
+      operationId: deleteGuru
+      tags: [guru]
+      summary: Hapus guru
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guru berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # KELAS
+  /kelas:
+    get:
+      operationId: listKelas
+      tags: [kelas]
+      summary: Daftar semua kelas
+      responses:
+        "200":
+          description: Daftar kelas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Kelas"
+    post:
+      operationId: createKelas
+      tags: [kelas]
+      summary: Tambah kelas baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKelasBody"
+      responses:
+        "201":
+          description: Kelas berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kelas"
+
+  /kelas/{id}:
+    put:
+      operationId: updateKelas
+      tags: [kelas]
+      summary: Update kelas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKelasBody"
+      responses:
+        "200":
+          description: Kelas diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kelas"
+    delete:
+      operationId: deleteKelas
+      tags: [kelas]
+      summary: Hapus kelas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Kelas berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # MATA PELAJARAN
+  /mata-pelajaran:
+    get:
+      operationId: listMataPelajaran
+      tags: [mata_pelajaran]
+      summary: Daftar semua mata pelajaran
+      responses:
+        "200":
+          description: Daftar mata pelajaran
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MataPelajaran"
+    post:
+      operationId: createMataPelajaran
+      tags: [mata_pelajaran]
+      summary: Tambah mata pelajaran baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMataPelajaranBody"
+      responses:
+        "201":
+          description: Mata pelajaran berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MataPelajaran"
+
+  /mata-pelajaran/{id}:
+    put:
+      operationId: updateMataPelajaran
+      tags: [mata_pelajaran]
+      summary: Update mata pelajaran
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMataPelajaranBody"
+      responses:
+        "200":
+          description: Mata pelajaran diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MataPelajaran"
+    delete:
+      operationId: deleteMataPelajaran
+      tags: [mata_pelajaran]
+      summary: Hapus mata pelajaran
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Mata pelajaran berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # JADWAL
+  /jadwal:
+    get:
+      operationId: listJadwal
+      tags: [jadwal]
+      summary: Daftar jadwal pelajaran
+      parameters:
+        - name: kelas_id
+          in: query
+          schema:
+            type: string
+        - name: guru_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daftar jadwal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Jadwal"
+    post:
+      operationId: createJadwal
+      tags: [jadwal]
+      summary: Tambah jadwal baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJadwalBody"
+      responses:
+        "201":
+          description: Jadwal berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jadwal"
+
+  /jadwal/{id}:
+    delete:
+      operationId: deleteJadwal
+      tags: [jadwal]
+      summary: Hapus jadwal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Jadwal berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ABSENSI
+  /absensi:
+    get:
+      operationId: listAbsensi
+      tags: [absensi]
+      summary: Daftar absensi
+      parameters:
+        - name: siswa_id
+          in: query
+          schema:
+            type: string
+        - name: kelas_id
+          in: query
+          schema:
+            type: string
+        - name: mata_pelajaran_id
+          in: query
+          schema:
+            type: string
+        - name: tanggal
+          in: query
+          schema:
+            type: string
+        - name: bulan
+          in: query
+          schema:
+            type: string
+            description: Format YYYY-MM
+      responses:
+        "200":
+          description: Daftar absensi
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Absensi"
+    post:
+      operationId: createAbsensi
+      tags: [absensi]
+      summary: Input absensi (bisa bulk)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAbsensiBody"
+      responses:
+        "201":
+          description: Absensi berhasil disimpan
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Absensi"
+
+  /absensi/rekap:
+    get:
+      operationId: getRekapAbsensi
+      tags: [absensi]
+      summary: Rekap absensi per siswa per bulan
+      parameters:
+        - name: siswa_id
+          in: query
+          schema:
+            type: string
+        - name: bulan
+          in: query
+          schema:
+            type: string
+            description: Format YYYY-MM
+        - name: kelas_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rekap absensi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RekapAbsensi"
+
+  /absensi/{id}:
+    put:
+      operationId: updateAbsensi
+      tags: [absensi]
+      summary: Update status absensi
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAbsensiBody"
+      responses:
+        "200":
+          description: Absensi diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Absensi"
+
+  # NILAI
+  /nilai:
+    get:
+      operationId: listNilai
+      tags: [nilai]
+      summary: Daftar nilai siswa
+      parameters:
+        - name: siswa_id
+          in: query
+          schema:
+            type: string
+        - name: mata_pelajaran_id
+          in: query
+          schema:
+            type: string
+        - name: semester
+          in: query
+          schema:
+            type: string
+        - name: tahun_ajaran
+          in: query
+          schema:
+            type: string
+        - name: kelas_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daftar nilai
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Nilai"
+    post:
+      operationId: createNilai
+      tags: [nilai]
+      summary: Input nilai siswa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNilaiBody"
+      responses:
+        "201":
+          description: Nilai berhasil disimpan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Nilai"
+
+  /nilai/{id}:
+    put:
+      operationId: updateNilai
+      tags: [nilai]
+      summary: Update nilai siswa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNilaiBody"
+      responses:
+        "200":
+          description: Nilai diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Nilai"
+    delete:
+      operationId: deleteNilai
+      tags: [nilai]
+      summary: Hapus nilai
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Nilai berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /nilai/raport:
+    get:
+      operationId: getRaport
+      tags: [nilai]
+      summary: Raport digital siswa
+      parameters:
+        - name: siswa_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: semester
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: tahun_ajaran
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Data raport siswa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Raport"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserProfile"
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+      required:
+        - user
+        - access_token
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, guru, siswa]
+        full_name:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - email
+        - role
+        - full_name
+
+    AdminStats:
+      type: object
+      properties:
+        total_siswa:
+          type: integer
+        total_guru:
+          type: integer
+        total_kelas:
+          type: integer
+        total_mata_pelajaran:
+          type: integer
+        absensi_hari_ini:
+          type: integer
+        siswa_per_kelas:
+          type: array
+          items:
+            type: object
+            properties:
+              nama_kelas:
+                type: string
+              jumlah:
+                type: integer
+            required:
+              - nama_kelas
+              - jumlah
+      required:
+        - total_siswa
+        - total_guru
+        - total_kelas
+        - total_mata_pelajaran
+        - absensi_hari_ini
+        - siswa_per_kelas
+
+    GuruStats:
+      type: object
+      properties:
+        total_kelas_diajar:
+          type: integer
+        total_siswa_diajar:
+          type: integer
+        jadwal_hari_ini:
+          type: array
+          items:
+            $ref: "#/components/schemas/Jadwal"
+        mata_pelajaran:
+          type: array
+          items:
+            $ref: "#/components/schemas/MataPelajaran"
+      required:
+        - total_kelas_diajar
+        - total_siswa_diajar
+        - jadwal_hari_ini
+        - mata_pelajaran
+
+    SiswaStats:
+      type: object
+      properties:
+        nama_siswa:
+          type: string
+        kelas:
+          type: string
+        jadwal_hari_ini:
+          type: array
+          items:
+            $ref: "#/components/schemas/Jadwal"
+        nilai_terbaru:
+          type: array
+          items:
+            $ref: "#/components/schemas/Nilai"
+        rekap_absensi_bulan_ini:
+          $ref: "#/components/schemas/RekapAbsensiItem"
+      required:
+        - nama_siswa
+        - kelas
+        - jadwal_hari_ini
+        - nilai_terbaru
+        - rekap_absensi_bulan_ini
+
+    Siswa:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+          nullable: true
+        nis:
+          type: string
+        nisn:
+          type: string
+        nama:
+          type: string
+        kelas_id:
+          type: string
+          nullable: true
+        kelas:
+          $ref: "#/components/schemas/Kelas"
+          nullable: true
+        jenis_kelamin:
+          type: string
+          enum: [L, P]
+        tanggal_lahir:
+          type: string
+        alamat:
+          type: string
+          nullable: true
+        no_hp_ortu:
+          type: string
+          nullable: true
+        foto_url:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+      required:
+        - id
+        - nis
+        - nisn
+        - nama
+        - jenis_kelamin
+        - tanggal_lahir
+
+    SiswaListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Siswa"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - data
+        - total
+        - page
+        - limit
+
+    CreateSiswaBody:
+      type: object
+      properties:
+        nis:
+          type: string
+        nisn:
+          type: string
+        nama:
+          type: string
+        kelas_id:
+          type: string
+          nullable: true
+        jenis_kelamin:
+          type: string
+          enum: [L, P]
+        tanggal_lahir:
+          type: string
+        alamat:
+          type: string
+          nullable: true
+        no_hp_ortu:
+          type: string
+          nullable: true
+      required:
+        - nis
+        - nisn
+        - nama
+        - jenis_kelamin
+        - tanggal_lahir
+
+    UpdateSiswaBody:
+      type: object
+      properties:
+        nis:
+          type: string
+        nisn:
+          type: string
+        nama:
+          type: string
+        kelas_id:
+          type: string
+          nullable: true
+        jenis_kelamin:
+          type: string
+          enum: [L, P]
+        tanggal_lahir:
+          type: string
+        alamat:
+          type: string
+          nullable: true
+        no_hp_ortu:
+          type: string
+          nullable: true
+
+    Guru:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+          nullable: true
+        nip:
+          type: string
+          nullable: true
+        nama:
+          type: string
+        mata_pelajaran_id:
+          type: string
+          nullable: true
+        mata_pelajaran:
+          $ref: "#/components/schemas/MataPelajaran"
+          nullable: true
+        no_hp:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+      required:
+        - id
+        - nama
+
+    CreateGuruBody:
+      type: object
+      properties:
+        nip:
+          type: string
+          nullable: true
+        nama:
+          type: string
+        mata_pelajaran_id:
+          type: string
+          nullable: true
+        no_hp:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+      required:
+        - nama
+
+    UpdateGuruBody:
+      type: object
+      properties:
+        nip:
+          type: string
+          nullable: true
+        nama:
+          type: string
+        mata_pelajaran_id:
+          type: string
+          nullable: true
+        no_hp:
+          type: string
+          nullable: true
+
+    Kelas:
+      type: object
+      properties:
+        id:
+          type: string
+        nama_kelas:
+          type: string
+        tingkat:
+          type: integer
+        wali_kelas_id:
+          type: string
+          nullable: true
+        wali_kelas:
+          $ref: "#/components/schemas/Guru"
+          nullable: true
+        tahun_ajaran:
+          type: string
+        jumlah_siswa:
+          type: integer
+          nullable: true
+      required:
+        - id
+        - nama_kelas
+        - tingkat
+        - tahun_ajaran
+
+    CreateKelasBody:
+      type: object
+      properties:
+        nama_kelas:
+          type: string
+        tingkat:
+          type: integer
+        wali_kelas_id:
+          type: string
+          nullable: true
+        tahun_ajaran:
+          type: string
+      required:
+        - nama_kelas
+        - tingkat
+        - tahun_ajaran
+
+    UpdateKelasBody:
+      type: object
+      properties:
+        nama_kelas:
+          type: string
+        tingkat:
+          type: integer
+        wali_kelas_id:
+          type: string
+          nullable: true
+        tahun_ajaran:
+          type: string
+
+    MataPelajaran:
+      type: object
+      properties:
+        id:
+          type: string
+        nama_mapel:
+          type: string
+        kode_mapel:
+          type: string
+          nullable: true
+        guru_id:
+          type: string
+          nullable: true
+        guru:
+          $ref: "#/components/schemas/Guru"
+          nullable: true
+      required:
+        - id
+        - nama_mapel
+
+    CreateMataPelajaranBody:
+      type: object
+      properties:
+        nama_mapel:
+          type: string
+        kode_mapel:
+          type: string
+          nullable: true
+        guru_id:
+          type: string
+          nullable: true
+      required:
+        - nama_mapel
+
+    UpdateMataPelajaranBody:
+      type: object
+      properties:
+        nama_mapel:
+          type: string
+        kode_mapel:
+          type: string
+          nullable: true
+        guru_id:
+          type: string
+          nullable: true
+
+    Jadwal:
+      type: object
+      properties:
+        id:
+          type: string
+        kelas_id:
+          type: string
+        kelas:
+          $ref: "#/components/schemas/Kelas"
+          nullable: true
+        mata_pelajaran_id:
+          type: string
+        mata_pelajaran:
+          $ref: "#/components/schemas/MataPelajaran"
+          nullable: true
+        guru_id:
+          type: string
+        guru:
+          $ref: "#/components/schemas/Guru"
+          nullable: true
+        hari:
+          type: string
+          enum: [Senin, Selasa, Rabu, Kamis, Jumat, Sabtu]
+        jam_mulai:
+          type: string
+        jam_selesai:
+          type: string
+      required:
+        - id
+        - kelas_id
+        - mata_pelajaran_id
+        - guru_id
+        - hari
+        - jam_mulai
+        - jam_selesai
+
+    CreateJadwalBody:
+      type: object
+      properties:
+        kelas_id:
+          type: string
+        mata_pelajaran_id:
+          type: string
+        guru_id:
+          type: string
+        hari:
+          type: string
+          enum: [Senin, Selasa, Rabu, Kamis, Jumat, Sabtu]
+        jam_mulai:
+          type: string
+        jam_selesai:
+          type: string
+      required:
+        - kelas_id
+        - mata_pelajaran_id
+        - guru_id
+        - hari
+        - jam_mulai
+        - jam_selesai
+
+    Absensi:
+      type: object
+      properties:
+        id:
+          type: string
+        siswa_id:
+          type: string
+        siswa:
+          $ref: "#/components/schemas/Siswa"
+          nullable: true
+        mata_pelajaran_id:
+          type: string
+        mata_pelajaran:
+          $ref: "#/components/schemas/MataPelajaran"
+          nullable: true
+        tanggal:
+          type: string
+        status:
+          type: string
+          enum: [hadir, izin, sakit, alfa]
+        keterangan:
+          type: string
+          nullable: true
+      required:
+        - id
+        - siswa_id
+        - mata_pelajaran_id
+        - tanggal
+        - status
+
+    CreateAbsensiBody:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              siswa_id:
+                type: string
+              mata_pelajaran_id:
+                type: string
+              tanggal:
+                type: string
+              status:
+                type: string
+                enum: [hadir, izin, sakit, alfa]
+              keterangan:
+                type: string
+                nullable: true
+            required:
+              - siswa_id
+              - mata_pelajaran_id
+              - tanggal
+              - status
+      required:
+        - records
+
+    UpdateAbsensiBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [hadir, izin, sakit, alfa]
+        keterangan:
+          type: string
+          nullable: true
+      required:
+        - status
+
+    RekapAbsensiItem:
+      type: object
+      properties:
+        hadir:
+          type: integer
+        izin:
+          type: integer
+        sakit:
+          type: integer
+        alfa:
+          type: integer
+        total:
+          type: integer
+      required:
+        - hadir
+        - izin
+        - sakit
+        - alfa
+        - total
+
+    RekapAbsensi:
+      type: object
+      properties:
+        bulan:
+          type: string
+        siswa:
+          type: array
+          items:
+            type: object
+            properties:
+              siswa_id:
+                type: string
+              nama:
+                type: string
+              nis:
+                type: string
+              rekap:
+                $ref: "#/components/schemas/RekapAbsensiItem"
+            required:
+              - siswa_id
+              - nama
+              - nis
+              - rekap
+      required:
+        - bulan
+        - siswa
+
+    Nilai:
+      type: object
+      properties:
+        id:
+          type: string
+        siswa_id:
+          type: string
+        siswa:
+          $ref: "#/components/schemas/Siswa"
+          nullable: true
+        mata_pelajaran_id:
+          type: string
+        mata_pelajaran:
+          $ref: "#/components/schemas/MataPelajaran"
+          nullable: true
+        semester:
+          type: string
+          enum: ["1", "2"]
+        nilai_harian:
+          type: number
+          nullable: true
+        nilai_uts:
+          type: number
+          nullable: true
+        nilai_uas:
+          type: number
+          nullable: true
+        nilai_akhir:
+          type: number
+          nullable: true
+        tahun_ajaran:
+          type: string
+      required:
+        - id
+        - siswa_id
+        - mata_pelajaran_id
+        - semester
+        - tahun_ajaran
+
+    CreateNilaiBody:
+      type: object
+      properties:
+        siswa_id:
+          type: string
+        mata_pelajaran_id:
+          type: string
+        semester:
+          type: string
+          enum: ["1", "2"]
+        nilai_harian:
+          type: number
+          nullable: true
+        nilai_uts:
+          type: number
+          nullable: true
+        nilai_uas:
+          type: number
+          nullable: true
+        tahun_ajaran:
+          type: string
+      required:
+        - siswa_id
+        - mata_pelajaran_id
+        - semester
+        - tahun_ajaran
+
+    UpdateNilaiBody:
+      type: object
+      properties:
+        nilai_harian:
+          type: number
+          nullable: true
+        nilai_uts:
+          type: number
+          nullable: true
+        nilai_uas:
+          type: number
+          nullable: true
+
+    Raport:
+      type: object
+      properties:
+        siswa:
+          $ref: "#/components/schemas/Siswa"
+        semester:
+          type: string
+        tahun_ajaran:
+          type: string
+        nilai_list:
+          type: array
+          items:
+            type: object
+            properties:
+              mata_pelajaran:
+                type: string
+              kode_mapel:
+                type: string
+                nullable: true
+              nilai_harian:
+                type: number
+                nullable: true
+              nilai_uts:
+                type: number
+                nullable: true
+              nilai_uas:
+                type: number
+                nullable: true
+              nilai_akhir:
+                type: number
+                nullable: true
+            required:
+              - mata_pelajaran
+        rata_rata:
+          type: number
+          nullable: true
+      required:
+        - siswa
+        - semester
+        - tahun_ajaran
+        - nilai_list
