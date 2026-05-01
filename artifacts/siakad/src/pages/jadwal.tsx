@@ -68,14 +68,14 @@ export default function JadwalPage() {
   const isAdmin = user?.role === 'admin';
   const isGuru = user?.role === 'guru';
 
-  const [selectedKelas, setSelectedKelas] = useState<string>("");
+  const [selectedKelas, setSelectedKelas] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: jadwalData, isLoading } = useListJadwal({ 
-    kelas_id: selectedKelas || undefined,
+    kelas_id: selectedKelas !== "all" ? selectedKelas : undefined,
   });
   
   const { data: kelasData } = useListKelas();
@@ -145,7 +145,7 @@ export default function JadwalPage() {
               <SelectValue placeholder="Pilih Kelas" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Semua Kelas</SelectItem>
+              <SelectItem value="all">Semua Kelas</SelectItem>
               {kelasData?.map(k => (
                 <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
               ))}
@@ -342,7 +342,7 @@ export default function JadwalPage() {
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold truncate">{jadwal.mata_pelajaran?.nama_mapel}</div>
                           <div className="text-sm text-muted-foreground truncate">{jadwal.guru?.nama}</div>
-                          {!selectedKelas && (
+                          {selectedKelas === "all" && (
                             <Badge variant="secondary" className="mt-1">
                               Kelas {jadwal.kelas?.nama_kelas}
                             </Badge>
