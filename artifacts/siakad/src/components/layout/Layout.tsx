@@ -1,184 +1,308 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
-import { 
-  BookOpen, 
-  Calendar, 
-  GraduationCap, 
-  LayoutDashboard, 
-  LogOut, 
-  Menu, 
-  Users, 
+import {
+  BookOpen,
+  Calendar,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Users,
   Users2,
   FileText,
   ClipboardCheck,
-  School
+  School,
+  X,
+  ChevronRight,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar
-} from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 
-const getRoleColor = (role?: string) => {
-  switch(role) {
-    case 'admin': return 'bg-blue-500 hover:bg-blue-600';
-    case 'guru': return 'bg-green-500 hover:bg-green-600';
-    case 'siswa': return 'bg-orange-500 hover:bg-orange-600';
-    default: return 'bg-gray-500';
+const getRoleBadgeStyle = (role?: string) => {
+  switch (role) {
+    case "admin": return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+    case "guru": return "bg-emerald-500/20 text-emerald-200 border-emerald-400/30";
+    case "siswa": return "bg-orange-500/20 text-orange-200 border-orange-400/30";
+    default: return "bg-white/10 text-white/60 border-white/20";
   }
 };
 
-const getRoleMenu = (role?: string) => {
-  const commonMenu = [
+const getRoleLabel = (role?: string) => {
+  switch (role) {
+    case "admin": return "Administrator";
+    case "guru": return "Guru";
+    case "siswa": return "Siswa";
+    default: return role;
+  }
+};
+
+const getAdminMenu = () => [
+  { group: "Utama", items: [
     { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+  ]},
+  { group: "Manajemen", items: [
+    { title: "Siswa", icon: Users, url: "/siswa" },
+    { title: "Guru", icon: Users2, url: "/guru" },
+    { title: "Kelas", icon: School, url: "/kelas" },
+    { title: "Mata Pelajaran", icon: BookOpen, url: "/mata-pelajaran" },
+  ]},
+  { group: "Akademik", items: [
     { title: "Jadwal", icon: Calendar, url: "/jadwal" },
     { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
     { title: "Nilai", icon: FileText, url: "/nilai" },
-  ];
+    { title: "Raport", icon: GraduationCap, url: "/raport" },
+  ]},
+];
 
-  if (role === 'admin') {
-    return [
-      { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
-      { title: "Siswa", icon: Users, url: "/siswa" },
-      { title: "Guru", icon: Users2, url: "/guru" },
-      { title: "Kelas", icon: School, url: "/kelas" },
-      { title: "Mata Pelajaran", icon: BookOpen, url: "/mata-pelajaran" },
-      { title: "Jadwal", icon: Calendar, url: "/jadwal" },
-      { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
-      { title: "Nilai", icon: FileText, url: "/nilai" },
-      { title: "Raport", icon: GraduationCap, url: "/raport" },
-    ];
-  }
+const getGuruMenu = () => [
+  { group: "Utama", items: [
+    { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+  ]},
+  { group: "Akademik", items: [
+    { title: "Jadwal", icon: Calendar, url: "/jadwal" },
+    { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
+    { title: "Nilai", icon: FileText, url: "/nilai" },
+    { title: "Raport", icon: GraduationCap, url: "/raport" },
+  ]},
+];
 
-  if (role === 'guru') {
-    return [
-      ...commonMenu,
-      { title: "Raport", icon: GraduationCap, url: "/raport" },
-    ];
-  }
+const getSiswaMenu = () => [
+  { group: "Utama", items: [
+    { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+  ]},
+  { group: "Akademik", items: [
+    { title: "Jadwal", icon: Calendar, url: "/jadwal" },
+    { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
+    { title: "Nilai", icon: FileText, url: "/nilai" },
+    { title: "Raport", icon: GraduationCap, url: "/raport" },
+  ]},
+];
 
-  if (role === 'siswa') {
-    return [
-      ...commonMenu,
-      { title: "Raport", icon: GraduationCap, url: "/raport" },
-    ];
-  }
-
+const getMenuGroups = (role?: string) => {
+  if (role === "admin") return getAdminMenu();
+  if (role === "guru") return getGuruMenu();
+  if (role === "siswa") return getSiswaMenu();
   return [];
 };
 
-function AppSidebar() {
-  const [location] = useLocation();
-  const { data: user } = useGetMe();
-  const logoutMutation = useLogout();
-  const [, setLocation] = useLocation();
-
-  const handleLogout = () => {
-    logoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        localStorage.removeItem('siakad_token');
-        localStorage.removeItem('siakad_user');
-        setLocation('/login');
-      }
-    });
+const getPageTitle = (pathname: string) => {
+  const map: Record<string, string> = {
+    "/dashboard": "Dashboard",
+    "/siswa": "Data Siswa",
+    "/guru": "Data Guru",
+    "/kelas": "Manajemen Kelas",
+    "/mata-pelajaran": "Mata Pelajaran",
+    "/jadwal": "Jadwal Pelajaran",
+    "/absensi": "Absensi",
+    "/nilai": "Data Nilai",
+    "/raport": "Raport Siswa",
   };
+  for (const key of Object.keys(map)) {
+    if (pathname.startsWith(key)) return map[key];
+  }
+  return "SIAKAD";
+};
 
-  const menuItems = getRoleMenu(user?.role);
+const getInitials = (name?: string) => {
+  if (!name) return "?";
+  return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+};
+
+interface SidebarContentProps {
+  user: any;
+  location: string;
+  onNavigate?: () => void;
+  onLogout: () => void;
+}
+
+function SidebarNav({ user, location, onNavigate, onLogout }: SidebarContentProps) {
+  const menuGroups = getMenuGroups(user?.role);
 
   return (
-    <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader className="flex flex-col p-4 border-b border-sidebar-border gap-2">
-        <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-          <div className="bg-white p-1 rounded-md shadow-sm">
-            <School className="h-6 w-6 text-primary" />
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="px-5 py-5 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+            <School className="h-5 w-5 text-white" />
           </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-sm tracking-tight text-white leading-tight">SMP NEGERI 2</span>
-            <span className="text-xs text-sidebar-primary-foreground/80 leading-tight">RAMBANG</span>
+          <div>
+            <p className="text-white font-bold text-sm leading-tight">SMP Negeri 2</p>
+            <p className="text-white/50 text-xs leading-tight">Rambang</p>
           </div>
         </div>
-        <div className="hidden group-data-[collapsible=icon]:flex justify-center items-center h-8">
-          <School className="h-6 w-6 text-white" />
-        </div>
-      </SidebarHeader>
+      </div>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.startsWith(item.url)}
-                    tooltip={item.title}
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+        {menuGroups.map((group) => (
+          <div key={group.group}>
+            <p className="text-white/35 text-[10px] font-semibold uppercase tracking-widest px-3 mb-1.5">
+              {group.group}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = location.startsWith(item.url);
+                return (
+                  <Link
+                    key={item.url}
+                    href={item.url}
+                    onClick={onNavigate}
+                    data-testid={`nav-${item.url.replace("/", "")}`}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group
+                      ${isActive
+                        ? "bg-white text-[hsl(231,59%,26%)] shadow-sm"
+                        : "text-white/70 hover:text-white hover:bg-white/10"
+                      }`}
                   >
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="border-t border-sidebar-border p-4">
-        {user ? (
-          <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
-            <div className="flex flex-col gap-1 group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-medium text-white truncate max-w-[140px]">{user.full_name}</span>
-              <div>
-                <Badge variant="secondary" className={`${getRoleColor(user.role)} text-white border-transparent hover:text-white capitalize`}>
-                  {user.role}
-                </Badge>
-              </div>
+                    <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-[hsl(231,59%,26%)]" : "text-white/50 group-hover:text-white"}`} />
+                    <span>{item.title}</span>
+                    {isActive && <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-50" />}
+                  </Link>
+                );
+              })}
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shrink-0" 
-              onClick={handleLogout}
+          </div>
+        ))}
+      </div>
+
+      {/* User Footer */}
+      {user && (
+        <div className="px-3 py-4 border-t border-white/10">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-white">{getInitials(user.full_name)}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-medium truncate leading-tight">{user.full_name}</p>
+              <span className={`inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${getRoleBadgeStyle(user.role)}`}>
+                {getRoleLabel(user.role)}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={onLogout}
               title="Logout"
+              data-testid="button-logout"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
-        ) : null}
-      </SidebarFooter>
-    </Sidebar>
+        </div>
+      )}
+    </div>
   );
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const [, setLocation] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: user } = useGetMe();
+  const logoutMutation = useLogout();
+
+  const handleLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        localStorage.removeItem("siakad_token");
+        localStorage.removeItem("siakad_user");
+        setLocation("/login");
+      },
+    });
+  };
+
+  const pageTitle = getPageTitle(location);
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-secondary">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-card px-4 sm:px-6 shadow-sm">
-            <SidebarTrigger />
-            <div className="flex-1" />
-          </header>
-          <main className="flex-1 p-4 sm:p-6 overflow-auto">
-            {children}
-          </main>
+    <div className="flex h-screen bg-[hsl(210,40%,98%)] overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside
+        className="hidden lg:flex flex-col w-64 shrink-0 h-full"
+        style={{ background: "hsl(231,59%,26%)" }}
+      >
+        <SidebarNav
+          user={user}
+          location={location}
+          onLogout={handleLogout}
+        />
+      </aside>
+
+      {/* Mobile Sidebar Overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside
+            className="absolute left-0 top-0 h-full w-64 flex flex-col shadow-2xl"
+            style={{ background: "hsl(231,59%,26%)" }}
+          >
+            <div className="absolute top-4 right-4">
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <SidebarNav
+              user={user}
+              location={location}
+              onNavigate={() => setMobileOpen(false)}
+              onLogout={handleLogout}
+            />
+          </aside>
         </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="shrink-0 h-16 bg-white border-b border-[hsl(214,32%,91%)] flex items-center px-6 gap-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]">
+          {/* Mobile hamburger */}
+          <button
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            onClick={() => setMobileOpen(true)}
+            data-testid="button-mobile-menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Page title */}
+          <div className="flex-1">
+            <h1 className="text-base font-semibold text-foreground tracking-tight">{pageTitle}</h1>
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-3">
+            <button className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative">
+              <Bell className="h-4.5 w-4.5" />
+            </button>
+            <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-border">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                style={{ background: "hsl(231,59%,26%)" }}
+              >
+                {getInitials(user?.full_name)}
+              </div>
+              <div className="hidden md:block">
+                <p className="text-sm font-medium text-foreground leading-tight">{user?.full_name}</p>
+                <p className="text-xs text-muted-foreground leading-tight capitalize">{getRoleLabel(user?.role)}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
