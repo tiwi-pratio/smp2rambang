@@ -16,9 +16,10 @@ import {
   X,
   ChevronRight,
   Bell,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const getRoleBadgeStyle = (role?: string) => {
   switch (role) {
@@ -110,38 +111,52 @@ const getInitials = (name?: string) => {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
 };
 
-interface SidebarContentProps {
+interface SidebarNavProps {
   user: any;
   location: string;
+  collapsed: boolean;
   onNavigate?: () => void;
   onLogout: () => void;
 }
 
-function SidebarNav({ user, location, onNavigate, onLogout }: SidebarContentProps) {
+function SidebarNav({ user, location, collapsed, onNavigate, onLogout }: SidebarNavProps) {
   const menuGroups = getMenuGroups(user?.role);
 
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+      <div className={`border-b border-white/10 flex items-center shrink-0 ${collapsed ? "px-0 py-5 justify-center h-16" : "px-5 py-5"}`}>
+        {collapsed ? (
+          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
             <School className="h-5 w-5 text-white" />
           </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-tight">SMP Negeri 2</p>
-            <p className="text-white/50 text-xs leading-tight">Rambang</p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+              <School className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm leading-tight">SMP Negeri 2</p>
+              <p className="text-white/50 text-xs leading-tight">Rambang</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+      {/* Navigation — scrollbar hidden */}
+      <div
+        className={`flex-1 overflow-y-auto py-4 space-y-5 ${collapsed ? "px-2" : "px-3"}`}
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        <style>{`.sidebar-scroll::-webkit-scrollbar { display: none; }`}</style>
         {menuGroups.map((group) => (
           <div key={group.group}>
-            <p className="text-white/35 text-[10px] font-semibold uppercase tracking-widest px-3 mb-1.5">
-              {group.group}
-            </p>
+            {!collapsed && (
+              <p className="text-white/35 text-[10px] font-semibold uppercase tracking-widest px-3 mb-1.5">
+                {group.group}
+              </p>
+            )}
+            {collapsed && <div className="h-px bg-white/10 my-2 mx-1" />}
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive = location.startsWith(item.url);
@@ -151,15 +166,19 @@ function SidebarNav({ user, location, onNavigate, onLogout }: SidebarContentProp
                     href={item.url}
                     onClick={onNavigate}
                     data-testid={`nav-${item.url.replace("/", "")}`}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group
+                    title={collapsed ? item.title : undefined}
+                    className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 group
+                      ${collapsed ? "px-0 py-2.5 justify-center" : "px-3 py-2.5"}
                       ${isActive
                         ? "bg-white text-[hsl(231,59%,26%)] shadow-sm"
                         : "text-white/70 hover:text-white hover:bg-white/10"
                       }`}
                   >
-                    <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-[hsl(231,59%,26%)]" : "text-white/50 group-hover:text-white"}`} />
-                    <span>{item.title}</span>
-                    {isActive && <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-50" />}
+                    <item.icon
+                      className={`h-4 w-4 shrink-0 ${isActive ? "text-[hsl(231,59%,26%)]" : "text-white/50 group-hover:text-white"}`}
+                    />
+                    {!collapsed && <span>{item.title}</span>}
+                    {!collapsed && isActive && <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-50" />}
                   </Link>
                 );
               })}
@@ -170,28 +189,44 @@ function SidebarNav({ user, location, onNavigate, onLogout }: SidebarContentProp
 
       {/* User Footer */}
       {user && (
-        <div className="px-3 py-4 border-t border-white/10">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-              <span className="text-xs font-bold text-white">{getInitials(user.full_name)}</span>
+        <div className={`border-t border-white/10 py-4 ${collapsed ? "px-2" : "px-3"}`}>
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center" title={user.full_name}>
+                <span className="text-xs font-bold text-white">{getInitials(user.full_name)}</span>
+              </div>
+              <button
+                onClick={onLogout}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                title="Logout"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate leading-tight">{user.full_name}</p>
-              <span className={`inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${getRoleBadgeStyle(user.role)}`}>
-                {getRoleLabel(user.role)}
-              </span>
+          ) : (
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <span className="text-xs font-bold text-white">{getInitials(user.full_name)}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate leading-tight">{user.full_name}</p>
+                <span className={`inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${getRoleBadgeStyle(user.role)}`}>
+                  {getRoleLabel(user.role)}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
+                onClick={onLogout}
+                title="Logout"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
-              onClick={onLogout}
-              title="Logout"
-              data-testid="button-logout"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -202,6 +237,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const { data: user } = useGetMe();
   const logoutMutation = useLogout();
 
@@ -221,12 +257,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-[hsl(210,40%,98%)] overflow-hidden">
       {/* Desktop Sidebar */}
       <aside
-        className="hidden lg:flex flex-col w-64 shrink-0 h-full"
+        className={`hidden lg:flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out ${collapsed ? "w-16" : "w-64"}`}
         style={{ background: "hsl(231,59%,26%)" }}
       >
         <SidebarNav
           user={user}
           location={location}
+          collapsed={collapsed}
           onLogout={handleLogout}
         />
       </aside>
@@ -242,7 +279,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             className="absolute left-0 top-0 h-full w-64 flex flex-col shadow-2xl"
             style={{ background: "hsl(231,59%,26%)" }}
           >
-            <div className="absolute top-4 right-4">
+            <div className="absolute top-4 right-4 z-10">
               <button
                 onClick={() => setMobileOpen(false)}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
@@ -253,6 +290,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <SidebarNav
               user={user}
               location={location}
+              collapsed={false}
               onNavigate={() => setMobileOpen(false)}
               onLogout={handleLogout}
             />
@@ -263,7 +301,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="shrink-0 h-16 bg-white border-b border-[hsl(214,32%,91%)] flex items-center px-6 gap-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]">
+        <header className="shrink-0 h-16 bg-white border-b border-[hsl(214,32%,91%)] flex items-center px-5 gap-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]">
+          {/* Desktop toggle */}
+          <button
+            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            onClick={() => setCollapsed((v) => !v)}
+            data-testid="button-sidebar-toggle"
+            title={collapsed ? "Buka sidebar" : "Tutup sidebar"}
+          >
+            {collapsed
+              ? <PanelLeftOpen className="h-5 w-5" />
+              : <PanelLeftClose className="h-5 w-5" />
+            }
+          </button>
+
           {/* Mobile hamburger */}
           <button
             className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -279,9 +330,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
-            <button className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative">
-              <Bell className="h-4.5 w-4.5" />
+          <div className="flex items-center gap-2">
+            <button className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <Bell className="h-[18px] w-[18px]" />
             </button>
             <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-border">
               <div
