@@ -43,18 +43,23 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
 }
 
 export default function ProfilPage() {
-  const { data: user } = useGetMe();
+  const { data: user, isLoading: userLoading } = useGetMe();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [siswa, setSiswa] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (userLoading) return;
+    if (user?.role !== "siswa") {
+      setLoading(false);
+      return;
+    }
     fetchMySiswa()
       .then(setSiswa)
       .catch(() => toast({ title: "Gagal memuat data profil", variant: "destructive" }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user, userLoading]);
 
   const complete = isProfileComplete(siswa);
 
