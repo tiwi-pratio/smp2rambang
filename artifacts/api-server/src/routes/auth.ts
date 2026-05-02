@@ -16,6 +16,14 @@ async function createSiswaRecord(full_name: string, jenis_kelamin: string, kelas
       tanggal_lahir: "2000-01-01",
       alamat: "",
       no_hp_ortu: "",
+      tempat_lahir: "",
+      agama: "",
+      golongan_darah: "",
+      no_hp_siswa: "",
+      nama_ayah: "",
+      pekerjaan_ayah: "",
+      nama_ibu: "",
+      pekerjaan_ibu: "",
     })
     .select("id")
     .single();
@@ -118,10 +126,18 @@ router.put("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: Auth
     res.status(404).json({ error: "Not Found", message: "Akun ini belum terhubung ke data siswa. Hubungi admin." });
     return;
   }
-  const { nisn, tanggal_lahir, alamat, no_hp_ortu } = req.body;
+  const {
+    nisn, tanggal_lahir, tempat_lahir, agama, golongan_darah,
+    alamat, no_hp_siswa, no_hp_ortu,
+    nama_ayah, pekerjaan_ayah, nama_ibu, pekerjaan_ibu,
+  } = req.body;
   const { data, error } = await supabase
     .from("siswa")
-    .update({ nisn, tanggal_lahir, alamat, no_hp_ortu })
+    .update({
+      nisn, tanggal_lahir, tempat_lahir, agama, golongan_darah,
+      alamat, no_hp_siswa, no_hp_ortu,
+      nama_ayah, pekerjaan_ayah, nama_ibu, pekerjaan_ibu,
+    })
     .eq("id", siswaId)
     .select("*, kelas:kelas_id(id, nama_kelas, tingkat, tahun_ajaran)")
     .single();

@@ -18,6 +18,7 @@ import NilaiPage from "@/pages/nilai";
 import RaportPage from "@/pages/raport";
 import AkunPage from "@/pages/akun";
 import ProfilPage from "@/pages/profil";
+import ProfilEditPage from "@/pages/profil-edit";
 
 import Layout from "@/components/layout/Layout";
 
@@ -88,6 +89,10 @@ function Router() {
 
       <Route path="/profil">
         {() => <ProtectedRoute component={ProfilPage} />}
+      </Route>
+
+      <Route path="/profil/edit">
+        {() => <ProtectedRoute component={ProfilEditPage} />}
       </Route>
 
       <Route component={NotFound} />

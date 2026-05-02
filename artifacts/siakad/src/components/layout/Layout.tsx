@@ -115,6 +115,7 @@ const getPageTitle = (pathname: string) => {
     "/absensi": "Absensi",
     "/nilai": "Data Nilai",
     "/raport": "Raport Siswa",
+    "/profil/edit": "Edit Profil",
     "/profil": "Profil Saya",
   };
   for (const key of Object.keys(map)) {
@@ -254,6 +255,8 @@ function isProfileComplete(data: any) {
   return (
     data?.nisn && data.nisn !== "" &&
     data?.tanggal_lahir && data.tanggal_lahir !== "2000-01-01" &&
+    data?.tempat_lahir && data.tempat_lahir !== "" &&
+    data?.agama && data.agama !== "" &&
     data?.alamat && data.alamat !== "" &&
     data?.no_hp_ortu && data.no_hp_ortu !== ""
   );
