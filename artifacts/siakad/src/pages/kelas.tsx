@@ -103,6 +103,9 @@ export default function KelasPage() {
             setEditingKelas(null);
             queryClient.invalidateQueries({ queryKey: getListKelasQueryKey() });
           },
+          onError: (err: any) => {
+            toast({ variant: "destructive", title: "Gagal memperbarui kelas", description: err?.data?.message || "Terjadi kesalahan." });
+          },
         }
       );
     } else {
@@ -113,6 +116,9 @@ export default function KelasPage() {
             toast({ title: "Kelas berhasil ditambahkan" });
             setIsCreateOpen(false);
             queryClient.invalidateQueries({ queryKey: getListKelasQueryKey() });
+          },
+          onError: (err: any) => {
+            toast({ variant: "destructive", title: "Gagal menambahkan kelas", description: err?.data?.message || "Terjadi kesalahan." });
           },
         }
       );
@@ -137,6 +143,9 @@ export default function KelasPage() {
         onSuccess: () => {
           toast({ title: "Kelas berhasil dihapus" });
           queryClient.invalidateQueries({ queryKey: getListKelasQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menghapus kelas", description: err?.data?.message || "Terjadi kesalahan." });
         },
       }
     );

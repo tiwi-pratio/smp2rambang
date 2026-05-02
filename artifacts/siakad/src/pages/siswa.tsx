@@ -101,6 +101,9 @@ export default function SiswaPage() {
           setEditingSiswa(null);
           queryClient.invalidateQueries({ queryKey: getListSiswaQueryKey() });
         },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal memperbarui siswa", description: err?.data?.message || "Terjadi kesalahan." });
+        },
       }
     );
   };
@@ -127,6 +130,9 @@ export default function SiswaPage() {
         onSuccess: () => {
           toast({ title: "Siswa berhasil dihapus" });
           queryClient.invalidateQueries({ queryKey: getListSiswaQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menghapus siswa", description: err?.data?.message || "Terjadi kesalahan." });
         },
       }
     );
@@ -190,7 +196,7 @@ export default function SiswaPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Jenis Kelamin</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select value={field.value} onValueChange={field.onChange}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Pilih Jenis Kelamin" />

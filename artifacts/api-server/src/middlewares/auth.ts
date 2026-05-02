@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -11,6 +12,17 @@ export interface AuthenticatedRequest extends Request {
     siswa_id?: string;
     guru_id?: string;
   };
+}
+
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = Buffer.from(parts[1], "base64url").toString("utf-8");
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
 }
 
 export async function requireAuth(
@@ -44,14 +56,31 @@ export async function requireAuth(
     return;
   }
 
+  // Primary: try from getUser response app_metadata
+  let siswaId: string | undefined = user.app_metadata?.siswa_id;
+  let guruId: string | undefined = user.app_metadata?.guru_id;
+
+  // Fallback: decode JWT payload directly (handles cases where getUser doesn't return app_metadata)
+  if (!siswaId && !guruId) {
+    const jwtPayload = decodeJwtPayload(token);
+    if (jwtPayload?.app_metadata) {
+      siswaId = siswaId || jwtPayload.app_metadata.siswa_id;
+      guruId = guruId || jwtPayload.app_metadata.guru_id;
+    }
+  }
+
+  if (!siswaId && !guruId) {
+    logger.debug({ userId: user.id }, "app_metadata not in JWT, will use admin API fallback in route handlers");
+  }
+
   req.user = {
     id: user.id,
     profile_id: profile.id,
     email: user.email!,
     role: profile.role,
     full_name: profile.full_name,
-    siswa_id: user.app_metadata?.siswa_id,
-    guru_id: user.app_metadata?.guru_id,
+    siswa_id: siswaId,
+    guru_id: guruId,
   };
 
   next();

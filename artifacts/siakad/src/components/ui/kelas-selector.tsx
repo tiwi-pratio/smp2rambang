@@ -29,7 +29,9 @@ export function KelasSelector({
   );
 
   useEffect(() => {
-    if (selectedKelas) {
+    if (!value) {
+      setFilterTingkat("");
+    } else if (selectedKelas) {
       setFilterTingkat(String(selectedKelas.tingkat));
     }
   }, [value]);

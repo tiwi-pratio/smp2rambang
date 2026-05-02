@@ -19,7 +19,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -61,30 +60,29 @@ const jadwalSchema = z.object({
   hari: z.enum(HARI_OPTIONS, { required_error: "Hari diperlukan" }),
   jam_mulai: z.string().min(1, "Jam mulai diperlukan"),
   jam_selesai: z.string().min(1, "Jam selesai diperlukan"),
-});
+}).refine(
+  (data) => !data.jam_mulai || !data.jam_selesai || data.jam_selesai > data.jam_mulai,
+  { message: "Jam selesai harus lebih lambat dari jam mulai", path: ["jam_selesai"] }
+);
 
 type JadwalFormValues = z.infer<typeof jadwalSchema>;
 
 export default function JadwalPage() {
   const { data: user, isLoading: userLoading } = useGetMe();
   const isAdmin = user?.role === 'admin';
-  const isGuru = user?.role === 'guru';
   const isSiswa = user?.role === 'siswa';
 
   const [selectedKelas, setSelectedKelas] = useState<string>("all");
   const [filterTingkat, setFilterTingkat] = useState<string>("all");
   const [siswaKelas, setSiswaKelas] = useState<{ id: string; nama_kelas: string } | null>(null);
-  // tracks whether we've finished resolving the siswa's kelas_id
   const [siswaKelasResolved, setSiswaKelasResolved] = useState(false);
   const [siswaKelasId, setSiswaKelasId] = useState<string | null>(null);
-  // null = belum resolve, "not_linked" = akun belum terhubung ke siswa, "no_kelas" = siswa ada tapi kelas belum di-assign, "fetch_error" = error jaringan
   const [siswaFetchStatus, setSiswaFetchStatus] = useState<"ok" | "not_linked" | "no_kelas" | "fetch_error" | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Resolve siswa's kelas before fetching jadwal
   useEffect(() => {
     if (userLoading) return;
     if (!isSiswa) {
@@ -93,7 +91,6 @@ export default function JadwalPage() {
     }
     fetchMySiswa().then((data) => {
       if (data === null) {
-        // 404: akun tidak terhubung ke record siswa sama sekali
         setSiswaKelasId(null);
         setSiswaFetchStatus("not_linked");
       } else if (data?.kelas_id) {
@@ -103,7 +100,6 @@ export default function JadwalPage() {
         setSiswaKelas(data.kelas ?? null);
         setSiswaFetchStatus("ok");
       } else {
-        // Siswa ada di database tapi kelas_id belum di-set oleh admin
         setSiswaKelasId(null);
         setSiswaFetchStatus("no_kelas");
       }
@@ -115,8 +111,6 @@ export default function JadwalPage() {
     });
   }, [user, userLoading, isSiswa]);
 
-  // For siswa: only enable the query once kelas is resolved and found
-  // For admin/guru: always enabled, uses selectedKelas filter
   const effectiveKelasId = isSiswa ? siswaKelasId : (selectedKelas !== "all" ? selectedKelas : undefined);
 
   const { data: jadwalData, isLoading } = useListJadwal(
@@ -150,15 +144,45 @@ export default function JadwalPage() {
     },
   });
 
+  const handleOpenCreate = () => {
+    form.reset({
+      kelas_id: selectedKelas !== "all" ? selectedKelas : "",
+      mata_pelajaran_id: "",
+      guru_id: "",
+      hari: "Senin",
+      jam_mulai: "07:00",
+      jam_selesai: "08:30",
+    });
+    setIsCreateOpen(true);
+  };
+
+  const handleCloseCreate = () => {
+    setIsCreateOpen(false);
+    form.reset({
+      kelas_id: "",
+      mata_pelajaran_id: "",
+      guru_id: "",
+      hari: "Senin",
+      jam_mulai: "07:00",
+      jam_selesai: "08:30",
+    });
+  };
+
   const onSubmit = (values: JadwalFormValues) => {
     createMutation.mutate(
       { data: values },
       {
         onSuccess: () => {
           toast({ title: "Jadwal berhasil ditambahkan" });
-          setIsCreateOpen(false);
-          form.reset();
+          handleCloseCreate();
           queryClient.invalidateQueries({ queryKey: getListJadwalQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({
+            variant: "destructive",
+            title: "Gagal menambahkan jadwal",
+            description: err?.data?.message || "Terjadi kesalahan. Coba lagi.",
+          });
         },
       }
     );
@@ -172,11 +196,17 @@ export default function JadwalPage() {
           toast({ title: "Jadwal berhasil dihapus" });
           queryClient.invalidateQueries({ queryKey: getListJadwalQueryKey() });
         },
+        onError: (err: any) => {
+          toast({
+            variant: "destructive",
+            title: "Gagal menghapus jadwal",
+            description: err?.data?.message || "Terjadi kesalahan. Coba lagi.",
+          });
+        },
       }
     );
   };
 
-  // Group jadwal by hari
   const jadwalByHari = HARI_OPTIONS.reduce((acc, hari) => {
     acc[hari] = jadwalData?.filter(j => j.hari === hari).sort((a, b) => a.jam_mulai.localeCompare(b.jam_mulai)) || [];
     return acc;
@@ -236,13 +266,13 @@ export default function JadwalPage() {
 
           {isAdmin && (
             <Dialog open={isCreateOpen} onOpenChange={(open) => {
-              setIsCreateOpen(open);
-              if (!open) form.reset();
+              if (open) handleOpenCreate();
+              else handleCloseCreate();
             }}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Tambah
+                  Tambah Jadwal
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
@@ -257,7 +287,7 @@ export default function JadwalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Hari</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Pilih Hari" />
@@ -318,7 +348,7 @@ export default function JadwalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Mata Pelajaran</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Pilih Mata Pelajaran" />
@@ -340,7 +370,7 @@ export default function JadwalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Guru Pengampu</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Pilih Guru" />
@@ -356,10 +386,13 @@ export default function JadwalPage() {
                         </FormItem>
                       )}
                     />
-                    <div className="flex justify-end pt-4">
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button type="button" variant="outline" onClick={handleCloseCreate}>
+                        Batal
+                      </Button>
                       <Button type="submit" disabled={createMutation.isPending}>
                         {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Simpan
+                        Simpan Jadwal
                       </Button>
                     </div>
                   </form>
@@ -370,7 +403,6 @@ export default function JadwalPage() {
         </div>
       </div>
 
-      {/* Siswa with no linked kelas */}
       {isSiswa && siswaKelasResolved && !siswaKelasId ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -402,97 +434,99 @@ export default function JadwalPage() {
           </CardContent>
         </Card>
       ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {(isLoading || (isSiswa && !siswaKelasResolved)) ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-3 border-b bg-muted/50">
-                <Skeleton className="h-6 w-24" />
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="space-y-4">
-                  {[1, 2].map(j => (
-                    <div key={j} className="flex gap-4">
-                      <Skeleton className="h-10 w-16 shrink-0" />
-                      <div className="space-y-2 flex-1">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-3 w-2/3" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          HARI_OPTIONS.map(hari => (
-            <Card key={hari}>
-              <CardHeader className="pb-3 border-b bg-muted/50">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span>{hari}</span>
-                  <Badge variant="outline" className="bg-background">
-                    {jadwalByHari[hari].length} Sesi
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 p-0">
-                {jadwalByHari[hari].length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground text-sm">
-                    Tidak ada jadwal
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {jadwalByHari[hari].map(jadwal => (
-                      <div key={jadwal.id} className="p-4 flex gap-4 hover:bg-muted/50 transition-colors group">
-                        <div className="shrink-0 text-sm font-medium text-center">
-                          <div className="text-primary">{jadwal.jam_mulai}</div>
-                          <div className="text-muted-foreground text-xs">{jadwal.jam_selesai}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(isLoading || (isSiswa && !siswaKelasResolved)) ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="pb-3 border-b bg-muted/50">
+                  <Skeleton className="h-6 w-24" />
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="space-y-4">
+                    {[1, 2].map(j => (
+                      <div key={j} className="flex gap-4">
+                        <Skeleton className="h-10 w-16 shrink-0" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-3 w-2/3" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold truncate">{jadwal.mata_pelajaran?.nama_mapel}</div>
-                          <div className="text-sm text-muted-foreground truncate">{jadwal.guru?.nama}</div>
-                          {selectedKelas === "all" && !isSiswa && (
-                            <Badge variant="secondary" className="mt-1">
-                              Kelas {jadwal.kelas?.nama_kelas}
-                            </Badge>
-                          )}
-                        </div>
-                        {isAdmin && (
-                          <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Hapus Jadwal</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Yakin ingin menghapus jadwal ini?
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(jadwal.id)} className="bg-destructive text-destructive-foreground">
-                                    Hapus
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            HARI_OPTIONS.map(hari => (
+              <Card key={hari}>
+                <CardHeader className="pb-3 border-b bg-muted/50">
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span>{hari}</span>
+                    <Badge variant="outline" className="bg-background">
+                      {jadwalByHari[hari].length} Sesi
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 p-0">
+                  {jadwalByHari[hari].length === 0 ? (
+                    <div className="p-6 text-center text-muted-foreground text-sm">
+                      Tidak ada jadwal
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {jadwalByHari[hari].map(jadwal => (
+                        <div key={jadwal.id} className="p-4 flex gap-4 hover:bg-muted/50 transition-colors group">
+                          <div className="shrink-0 text-sm font-medium text-center">
+                            <div className="text-primary">{jadwal.jam_mulai}</div>
+                            <div className="text-muted-foreground text-xs">{jadwal.jam_selesai}</div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold truncate">{jadwal.mata_pelajaran?.nama_mapel}</div>
+                            <div className="text-sm text-muted-foreground truncate">{jadwal.guru?.nama}</div>
+                            {selectedKelas === "all" && !isSiswa && jadwal.kelas?.nama_kelas && (
+                              <Badge variant="secondary" className="mt-1">
+                                {jadwal.kelas.nama_kelas}
+                              </Badge>
+                            )}
+                          </div>
+                          {isAdmin && (
+                            <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Hapus Jadwal</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Yakin ingin menghapus jadwal <strong>{jadwal.mata_pelajaran?.nama_mapel}</strong> hari {hari}?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(jadwal.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Hapus
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       )}
     </div>
   );
 }
-

@@ -101,6 +101,9 @@ export default function GuruPage() {
           setEditingGuru(null);
           queryClient.invalidateQueries({ queryKey: getListGuruQueryKey() });
         },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal memperbarui guru", description: err?.data?.message || "Terjadi kesalahan." });
+        },
       }
     );
   };
@@ -125,6 +128,9 @@ export default function GuruPage() {
         onSuccess: () => {
           toast({ title: "Guru berhasil dihapus" });
           queryClient.invalidateQueries({ queryKey: getListGuruQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menghapus guru", description: err?.data?.message || "Terjadi kesalahan." });
         },
       }
     );

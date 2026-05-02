@@ -116,7 +116,10 @@ function GuruAdminAbsensi({ isAdmin }: { isAdmin: boolean }) {
         onSuccess: () => {
           toast({ title: "Data absensi berhasil disimpan" });
           queryClient.invalidateQueries({ queryKey: getListAbsensiQueryKey() });
-        }
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menyimpan absensi", description: err?.data?.message || "Terjadi kesalahan." });
+        },
       }
     );
   };

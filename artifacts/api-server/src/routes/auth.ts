@@ -96,10 +96,17 @@ router.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 async function resolveSiswaId(req: AuthenticatedRequest): Promise<string | null> {
+  // Try JWT-decoded app_metadata first (fast path)
   if (req.user!.siswa_id) return req.user!.siswa_id;
-  // Fallback: re-fetch app_metadata from Supabase admin API (handles stale JWTs)
-  const { data } = await supabase.auth.admin.getUserById(req.user!.id);
-  return data?.user?.app_metadata?.siswa_id || null;
+  // Always call admin API as authoritative source — handles cases where JWT app_metadata
+  // is missing or stale (e.g. account created then immediately logged in)
+  const { data, error } = await supabase.auth.admin.getUserById(req.user!.id);
+  if (error) {
+    console.error("[resolveSiswaId] admin.getUserById error:", error.message);
+    return null;
+  }
+  const siswaId = data?.user?.app_metadata?.siswa_id || null;
+  return siswaId;
 }
 
 router.get("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: AuthenticatedRequest, res) => {

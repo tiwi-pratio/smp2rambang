@@ -95,6 +95,9 @@ export default function MataPelajaranPage() {
             setEditingMapel(null);
             queryClient.invalidateQueries({ queryKey: getListMataPelajaranQueryKey() });
           },
+          onError: (err: any) => {
+            toast({ variant: "destructive", title: "Gagal memperbarui mata pelajaran", description: err?.data?.message || "Terjadi kesalahan." });
+          },
         }
       );
     } else {
@@ -105,6 +108,9 @@ export default function MataPelajaranPage() {
             toast({ title: "Mata Pelajaran berhasil ditambahkan" });
             setIsCreateOpen(false);
             queryClient.invalidateQueries({ queryKey: getListMataPelajaranQueryKey() });
+          },
+          onError: (err: any) => {
+            toast({ variant: "destructive", title: "Gagal menambahkan mata pelajaran", description: err?.data?.message || "Terjadi kesalahan." });
           },
         }
       );
@@ -128,6 +134,9 @@ export default function MataPelajaranPage() {
         onSuccess: () => {
           toast({ title: "Mata Pelajaran berhasil dihapus" });
           queryClient.invalidateQueries({ queryKey: getListMataPelajaranQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menghapus mata pelajaran", description: err?.data?.message || "Terjadi kesalahan." });
         },
       }
     );

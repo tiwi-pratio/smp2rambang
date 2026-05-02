@@ -129,6 +129,9 @@ export default function NilaiPage() {
             setEditingNilai(null);
             queryClient.invalidateQueries({ queryKey: getListNilaiQueryKey() });
           },
+          onError: (err: any) => {
+            toast({ variant: "destructive", title: "Gagal memperbarui nilai", description: err?.data?.message || "Terjadi kesalahan." });
+          },
         }
       );
     } else {
@@ -140,6 +143,9 @@ export default function NilaiPage() {
             setIsCreateOpen(false);
             form.reset();
             queryClient.invalidateQueries({ queryKey: getListNilaiQueryKey() });
+          },
+          onError: (err: any) => {
+            toast({ variant: "destructive", title: "Gagal menambahkan nilai", description: err?.data?.message || "Terjadi kesalahan." });
           },
         }
       );
@@ -167,6 +173,9 @@ export default function NilaiPage() {
         onSuccess: () => {
           toast({ title: "Nilai berhasil dihapus" });
           queryClient.invalidateQueries({ queryKey: getListNilaiQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menghapus nilai", description: err?.data?.message || "Terjadi kesalahan." });
         },
       }
     );
@@ -208,7 +217,7 @@ export default function NilaiPage() {
                         <>
                           <div className="space-y-2">
                             <label className="text-sm font-medium leading-none">Kelas (Untuk Filter Siswa)</label>
-                            <Select onValueChange={setSelectedKelas} defaultValue={selectedKelas}>
+                            <Select value={selectedKelas} onValueChange={setSelectedKelas}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Pilih Kelas" />
                               </SelectTrigger>
@@ -225,7 +234,7 @@ export default function NilaiPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Siswa</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedKelas}>
+                                <Select value={field.value} onValueChange={field.onChange} disabled={!selectedKelas}>
                                   <FormControl>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Pilih Siswa" />
@@ -247,7 +256,7 @@ export default function NilaiPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Mata Pelajaran</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select value={field.value} onValueChange={field.onChange}>
                                   <FormControl>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Pilih Mapel" />
@@ -269,7 +278,7 @@ export default function NilaiPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Semester</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select value={field.value} onValueChange={field.onChange}>
                                   <FormControl>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Pilih Semester" />
