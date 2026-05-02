@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   useListJadwal, 
   useCreateJadwal, 
@@ -11,7 +11,8 @@ import {
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, Calendar } from "lucide-react";
+import { Plus, Trash2, Loader2, Calendar, BookOpen } from "lucide-react";
+import { fetchMySiswa } from "@/lib/profil-api";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,15 +65,28 @@ const jadwalSchema = z.object({
 type JadwalFormValues = z.infer<typeof jadwalSchema>;
 
 export default function JadwalPage() {
-  const { data: user } = useGetMe();
+  const { data: user, isLoading: userLoading } = useGetMe();
   const isAdmin = user?.role === 'admin';
   const isGuru = user?.role === 'guru';
+  const isSiswa = user?.role === 'siswa';
 
   const [selectedKelas, setSelectedKelas] = useState<string>("all");
+  const [siswaKelas, setSiswaKelas] = useState<{ id: string; nama_kelas: string } | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Auto-filter to siswa's own class
+  useEffect(() => {
+    if (userLoading || !isSiswa) return;
+    fetchMySiswa().then((data) => {
+      if (data?.kelas_id) {
+        setSelectedKelas(String(data.kelas_id));
+        setSiswaKelas(data.kelas ?? null);
+      }
+    }).catch(() => {});
+  }, [user, userLoading, isSiswa]);
 
   const { data: jadwalData, isLoading } = useListJadwal({ 
     kelas_id: selectedKelas !== "all" ? selectedKelas : undefined,
@@ -136,21 +150,31 @@ export default function JadwalPage() {
           <div className="bg-primary/10 p-2 rounded-lg">
             <Calendar className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Jadwal Pelajaran</h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Jadwal Pelajaran</h1>
+            {isSiswa && siswaKelas && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                <BookOpen className="h-3.5 w-3.5" />
+                {siswaKelas.nama_kelas}
+              </p>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Select value={selectedKelas} onValueChange={setSelectedKelas}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Pilih Kelas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Kelas</SelectItem>
-              {kelasData?.map(k => (
-                <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!isSiswa && (
+            <Select value={selectedKelas} onValueChange={setSelectedKelas}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Pilih Kelas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Kelas</SelectItem>
+                {kelasData?.map(k => (
+                  <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {isAdmin && (
             <Dialog open={isCreateOpen} onOpenChange={(open) => {
@@ -342,7 +366,7 @@ export default function JadwalPage() {
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold truncate">{jadwal.mata_pelajaran?.nama_mapel}</div>
                           <div className="text-sm text-muted-foreground truncate">{jadwal.guru?.nama}</div>
-                          {selectedKelas === "all" && (
+                          {selectedKelas === "all" && !isSiswa && (
                             <Badge variant="secondary" className="mt-1">
                               Kelas {jadwal.kelas?.nama_kelas}
                             </Badge>
