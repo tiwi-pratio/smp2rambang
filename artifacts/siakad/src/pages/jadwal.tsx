@@ -72,25 +72,45 @@ export default function JadwalPage() {
 
   const [selectedKelas, setSelectedKelas] = useState<string>("all");
   const [siswaKelas, setSiswaKelas] = useState<{ id: string; nama_kelas: string } | null>(null);
+  // tracks whether we've finished resolving the siswa's kelas_id
+  const [siswaKelasResolved, setSiswaKelasResolved] = useState(false);
+  const [siswaKelasId, setSiswaKelasId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Auto-filter to siswa's own class
+  // Resolve siswa's kelas before fetching jadwal
   useEffect(() => {
-    if (userLoading || !isSiswa) return;
+    if (userLoading) return;
+    if (!isSiswa) {
+      setSiswaKelasResolved(true);
+      return;
+    }
     fetchMySiswa().then((data) => {
       if (data?.kelas_id) {
-        setSelectedKelas(String(data.kelas_id));
+        const kid = String(data.kelas_id);
+        setSiswaKelasId(kid);
+        setSelectedKelas(kid);
         setSiswaKelas(data.kelas ?? null);
+      } else {
+        setSiswaKelasId(null);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      setSiswaKelasId(null);
+    }).finally(() => {
+      setSiswaKelasResolved(true);
+    });
   }, [user, userLoading, isSiswa]);
 
-  const { data: jadwalData, isLoading } = useListJadwal({ 
-    kelas_id: selectedKelas !== "all" ? selectedKelas : undefined,
-  });
+  // For siswa: only enable the query once kelas is resolved and found
+  // For admin/guru: always enabled, uses selectedKelas filter
+  const effectiveKelasId = isSiswa ? siswaKelasId : (selectedKelas !== "all" ? selectedKelas : undefined);
+
+  const { data: jadwalData, isLoading } = useListJadwal(
+    effectiveKelasId ? { kelas_id: effectiveKelasId } : undefined,
+    { query: { enabled: !isSiswa || (siswaKelasResolved && siswaKelasId !== null) } }
+  );
   
   const { data: kelasData } = useListKelas();
   const { data: mapelData } = useListMataPelajaran();
@@ -317,8 +337,22 @@ export default function JadwalPage() {
         </div>
       </div>
 
+      {/* Siswa with no linked kelas */}
+      {isSiswa && siswaKelasResolved && !siswaKelasId ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <div className="bg-amber-100 p-4 rounded-full">
+              <Calendar className="h-8 w-8 text-amber-500" />
+            </div>
+            <p className="font-semibold text-foreground">Kelas belum terdaftar</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Akun kamu belum terhubung ke kelas. Hubungi admin untuk menghubungkan akun ke kelas yang sesuai.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
+        {(isLoading || (isSiswa && !siswaKelasResolved)) ? (
           Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-3 border-b bg-muted/50">
@@ -406,6 +440,8 @@ export default function JadwalPage() {
           ))
         )}
       </div>
+      )}
     </div>
   );
 }
+
