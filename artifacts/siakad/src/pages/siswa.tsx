@@ -110,7 +110,7 @@ export default function SiswaPage() {
       nis: siswa.nis || "",
       nisn: siswa.nisn || "",
       nama: siswa.nama,
-      kelas_id: siswa.kelas_id || "",
+      kelas_id: siswa.kelas_id ? String(siswa.kelas_id) : "",
       jenis_kelamin: siswa.jenis_kelamin || "L",
       tanggal_lahir: siswa.tanggal_lahir ? siswa.tanggal_lahir.split("T")[0] : "",
       alamat: siswa.alamat || "",
@@ -231,7 +231,7 @@ export default function SiswaPage() {
                             {!kelasData?.length
                               ? <SelectItem value="__none__" disabled>Belum ada kelas</SelectItem>
                               : kelasData.map(k => (
-                                <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
+                                <SelectItem key={k.id} value={String(k.id)}>{k.nama_kelas}</SelectItem>
                               ))}
                           </SelectContent>
                         </Select>
