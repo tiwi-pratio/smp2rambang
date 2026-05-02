@@ -84,6 +84,7 @@ type BulkRow = {
   kelas_id: string;
   nis: string;
   nip: string;
+  jenis_kelamin: string;
 };
 
 let rowIdCounter = 1;
@@ -97,6 +98,7 @@ const emptyRow = (): BulkRow => ({
   kelas_id: "",
   nis: "",
   nip: "",
+  jenis_kelamin: "",
 });
 
 export default function AkunPage() {
@@ -121,6 +123,7 @@ export default function AkunPage() {
     kelas_id: "",
     nis: "",
     nip: "",
+    jenis_kelamin: "" as "" | "L" | "P",
   });
 
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyRow()]);
@@ -135,7 +138,7 @@ export default function AkunPage() {
         queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
         toast({ title: "Berhasil", description: "Akun berhasil dibuat" });
         setOpenCreate(false);
-        setForm({ email: "", password: "", full_name: "", role: "siswa", kelas_id: "", nis: "", nip: "" });
+        setForm({ email: "", password: "", full_name: "", role: "siswa", kelas_id: "", nis: "", nip: "", jenis_kelamin: "" });
       },
       onError: (err: any) => {
         toast({
@@ -189,9 +192,14 @@ export default function AkunPage() {
       toast({ title: "Error", description: "Pilih kelas untuk akun siswa", variant: "destructive" });
       return;
     }
+    if (form.role === "siswa" && !form.jenis_kelamin) {
+      toast({ title: "Error", description: "Pilih jenis kelamin untuk akun siswa", variant: "destructive" });
+      return;
+    }
     const payload: any = { email: form.email, password: form.password, full_name: form.full_name, role: form.role };
     if (form.role === "siswa") {
       payload.kelas_id = form.kelas_id;
+      payload.jenis_kelamin = form.jenis_kelamin;
       if (form.nis) payload.nis = form.nis;
     } else if (form.role === "guru") {
       if (form.nip) payload.nip = form.nip;
@@ -213,6 +221,7 @@ export default function AkunPage() {
     const accounts = validRows.map((r) => {
       const acc: any = { email: r.email, password: r.password, full_name: r.full_name, role: r.role };
       if (r.role === "siswa" && r.kelas_id) acc.kelas_id = r.kelas_id;
+      if (r.role === "siswa" && r.jenis_kelamin) acc.jenis_kelamin = r.jenis_kelamin;
       if (r.role === "siswa" && r.nis) acc.nis = r.nis;
       if (r.role === "guru" && r.nip) acc.nip = r.nip;
       return acc;
@@ -240,6 +249,7 @@ export default function AkunPage() {
   const hasSiswaRow = bulkRows.some((r) => r.role === "siswa");
   const hasGuruRow = bulkRows.some((r) => r.role === "guru");
   const hasExtraCol = hasSiswaRow || hasGuruRow;
+  const hasJKCol = hasSiswaRow;
 
   return (
     <div className="space-y-6">
@@ -395,6 +405,23 @@ export default function AkunPage() {
               <>
                 <div className="space-y-1.5">
                   <Label>
+                    Jenis Kelamin <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={form.jenis_kelamin}
+                    onValueChange={(v) => setForm({ ...form, jenis_kelamin: v as "L" | "P" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih jenis kelamin..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="L">Laki-laki</SelectItem>
+                      <SelectItem value="P">Perempuan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>
                     Kelas <span className="text-destructive">*</span>
                   </Label>
                   <Select
@@ -500,12 +527,14 @@ export default function AkunPage() {
           ) : (
             <div className="flex-1 overflow-y-auto space-y-3 py-2">
               <p className="text-sm text-muted-foreground">
-                Isi data akun yang ingin dibuat. Untuk siswa, pilih kelas di kolom Kelas.
+                Isi data akun yang ingin dibuat. Untuk siswa, pilih jenis kelamin dan kelas.
               </p>
 
               <div
                 className={`grid gap-2 px-1 ${
-                  hasExtraCol
+                  hasJKCol && hasExtraCol
+                    ? "grid-cols-[1fr_1fr_1fr_110px_110px_140px_36px]"
+                    : hasExtraCol
                     ? "grid-cols-[1fr_1fr_1fr_120px_140px_36px]"
                     : "grid-cols-[1fr_1fr_1fr_140px_36px]"
                 }`}
@@ -514,12 +543,13 @@ export default function AkunPage() {
                 <span className="text-xs font-medium text-muted-foreground">Email</span>
                 <span className="text-xs font-medium text-muted-foreground">Password</span>
                 <span className="text-xs font-medium text-muted-foreground">Role</span>
+                {hasJKCol && (
+                  <span className="text-xs font-medium text-muted-foreground">L/P</span>
+                )}
                 {hasExtraCol && (
-                  <>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {hasSiswaRow && hasGuruRow ? "Kelas / NIP" : hasSiswaRow ? "Kelas" : "NIP"}
-                    </span>
-                  </>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {hasSiswaRow && hasGuruRow ? "Kelas / NIP" : hasSiswaRow ? "Kelas" : "NIP"}
+                  </span>
                 )}
                 <span />
               </div>
@@ -529,7 +559,9 @@ export default function AkunPage() {
                   <div
                     key={row.id}
                     className={`grid gap-2 items-center ${
-                      hasExtraCol
+                      hasJKCol && hasExtraCol
+                        ? "grid-cols-[1fr_1fr_1fr_110px_110px_140px_36px]"
+                        : hasExtraCol
                         ? "grid-cols-[1fr_1fr_1fr_120px_140px_36px]"
                         : "grid-cols-[1fr_1fr_1fr_140px_36px]"
                     }`}
@@ -563,6 +595,25 @@ export default function AkunPage() {
                         <SelectItem value="guru">Guru</SelectItem>
                       </SelectContent>
                     </Select>
+                    {hasJKCol && (
+                      row.role === "siswa" ? (
+                        <Select
+                          value={row.jenis_kelamin || "__none__"}
+                          onValueChange={(v) => updateRow(row.id, "jenis_kelamin", v === "__none__" ? "" : v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="L/P" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__" disabled>Pilih...</SelectItem>
+                            <SelectItem value="L">Laki-laki</SelectItem>
+                            <SelectItem value="P">Perempuan</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span />
+                      )
+                    )}
                     {hasExtraCol && (
                       row.role === "siswa" ? (
                         <Select

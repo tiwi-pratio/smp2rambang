@@ -4,10 +4,10 @@ import { requireAuth, requireRole, AuthenticatedRequest } from "../middlewares/a
 
 const router = Router();
 
-async function createSiswaRecord(full_name: string, kelas_id?: string, nis?: string) {
+async function createSiswaRecord(full_name: string, jenis_kelamin: string, kelas_id?: string, nis?: string) {
   const { data, error } = await supabase
     .from("siswa")
-    .insert({ nama: full_name, kelas_id: kelas_id || null, nis: nis || null })
+    .insert({ nama: full_name, jenis_kelamin, kelas_id: kelas_id ? Number(kelas_id) : null, nis: nis || null })
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message || "Gagal membuat data siswa");
@@ -137,7 +137,7 @@ router.get("/auth/accounts", requireAuth, requireRole("admin"), async (_req: Aut
 });
 
 router.post("/auth/create-account", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res) => {
-  const { email, password, full_name, role, kelas_id, nis, nip } = req.body;
+  const { email, password, full_name, role, kelas_id, nis, nip, jenis_kelamin } = req.body;
 
   if (!email || !password || !full_name || !role) {
     res.status(400).json({ error: "Bad Request", message: "Semua field wajib diisi" });
@@ -151,6 +151,11 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
 
   if (role === "siswa" && !kelas_id) {
     res.status(400).json({ error: "Bad Request", message: "Kelas wajib dipilih untuk akun siswa" });
+    return;
+  }
+
+  if (role === "siswa" && !jenis_kelamin) {
+    res.status(400).json({ error: "Bad Request", message: "Jenis kelamin wajib dipilih untuk akun siswa" });
     return;
   }
 
@@ -170,7 +175,7 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
   let guruId: string | undefined;
   if (role === "siswa") {
     try {
-      siswaId = await createSiswaRecord(full_name, kelas_id, nis);
+      siswaId = await createSiswaRecord(full_name, jenis_kelamin, kelas_id, nis);
     } catch (e: any) {
       res.status(400).json({ error: "Bad Request", message: e.message });
       return;
@@ -232,7 +237,7 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
   const failed: { email: string; reason: string }[] = [];
 
   for (const account of accounts) {
-    const { email, password, full_name, role, kelas_id, nis, nip } = account;
+    const { email, password, full_name, role, kelas_id, nis, nip, jenis_kelamin } = account;
 
     if (!email || !password || !full_name || !role) {
       failed.push({ email: email || "(kosong)", reason: "Semua field wajib diisi" });
@@ -246,6 +251,11 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
 
     if (role === "siswa" && !kelas_id) {
       failed.push({ email, reason: "Kelas wajib dipilih untuk akun siswa" });
+      continue;
+    }
+
+    if (role === "siswa" && !jenis_kelamin) {
+      failed.push({ email, reason: "Jenis kelamin wajib dipilih untuk akun siswa" });
       continue;
     }
 
@@ -264,7 +274,7 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
     let guruId: string | undefined;
     if (role === "siswa") {
       try {
-        siswaId = await createSiswaRecord(full_name, kelas_id, nis);
+        siswaId = await createSiswaRecord(full_name, jenis_kelamin, kelas_id, nis);
       } catch (e: any) {
         failed.push({ email, reason: e.message });
         continue;
