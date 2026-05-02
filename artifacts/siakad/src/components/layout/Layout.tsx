@@ -280,8 +280,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     fetch(`/api/auth/me/siswa`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (!isProfileComplete(data)) {
           setShowProfileNotif(true);
           sessionStorage.setItem("profil_notif_shown", "1");
