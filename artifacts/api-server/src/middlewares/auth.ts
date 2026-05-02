@@ -56,21 +56,29 @@ export async function requireAuth(
     return;
   }
 
-  // Primary: try from getUser response app_metadata
-  let siswaId: string | undefined = user.app_metadata?.siswa_id;
-  let guruId: string | undefined = user.app_metadata?.guru_id;
+  // Primary: try app_metadata and user_metadata from getUser response
+  let siswaId: string | undefined =
+    user.app_metadata?.siswa_id || user.user_metadata?.siswa_id;
+  let guruId: string | undefined =
+    user.app_metadata?.guru_id || user.user_metadata?.guru_id;
 
-  // Fallback: decode JWT payload directly (handles cases where getUser doesn't return app_metadata)
+  // Fallback: decode JWT payload directly — check app_metadata, user_metadata, and top-level claims
   if (!siswaId && !guruId) {
     const jwtPayload = decodeJwtPayload(token);
-    if (jwtPayload?.app_metadata) {
-      siswaId = siswaId || jwtPayload.app_metadata.siswa_id;
-      guruId = guruId || jwtPayload.app_metadata.guru_id;
+    if (jwtPayload) {
+      siswaId =
+        jwtPayload.app_metadata?.siswa_id ||
+        jwtPayload.user_metadata?.siswa_id ||
+        jwtPayload.siswa_id;
+      guruId =
+        jwtPayload.app_metadata?.guru_id ||
+        jwtPayload.user_metadata?.guru_id ||
+        jwtPayload.guru_id;
     }
   }
 
   if (!siswaId && !guruId) {
-    logger.debug({ userId: user.id }, "app_metadata not in JWT, will use admin API fallback in route handlers");
+    logger.debug({ userId: user.id }, "No entity id in token — admin API will resolve in route handlers");
   }
 
   req.user = {

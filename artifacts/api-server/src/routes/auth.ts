@@ -96,17 +96,43 @@ router.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 async function resolveSiswaId(req: AuthenticatedRequest): Promise<string | null> {
-  // Try JWT-decoded app_metadata first (fast path)
+  // Fast path: JWT app_metadata or user_metadata already decoded by middleware
   if (req.user!.siswa_id) return req.user!.siswa_id;
-  // Always call admin API as authoritative source — handles cases where JWT app_metadata
-  // is missing or stale (e.g. account created then immediately logged in)
+
+  // Authoritative source: admin API (bypasses JWT caching issues)
   const { data, error } = await supabase.auth.admin.getUserById(req.user!.id);
   if (error) {
     console.error("[resolveSiswaId] admin.getUserById error:", error.message);
-    return null;
+  } else {
+    const u = data?.user;
+    console.log("[resolveSiswaId] admin user meta:", JSON.stringify({
+      app: u?.app_metadata,
+      user: u?.user_metadata,
+    }));
+    const siswaId =
+      u?.app_metadata?.siswa_id ||
+      u?.user_metadata?.siswa_id ||
+      null;
+    if (siswaId) return siswaId;
   }
-  const siswaId = data?.user?.app_metadata?.siswa_id || null;
-  return siswaId;
+
+  // Last-resort: look up siswa by full_name match from profiles (handles legacy accounts)
+  const fullName = req.user!.full_name;
+  if (fullName) {
+    const { data: rows } = await supabase
+      .from("siswa")
+      .select("id")
+      .eq("nama", fullName)
+      .limit(2);
+    // Only use if exactly one match to avoid ambiguity
+    if (rows && rows.length === 1) {
+      console.log("[resolveSiswaId] resolved via name fallback for:", fullName);
+      return rows[0].id;
+    }
+  }
+
+  console.error("[resolveSiswaId] could not resolve siswa_id for user:", req.user!.id);
+  return null;
 }
 
 router.get("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: AuthenticatedRequest, res) => {
@@ -277,6 +303,7 @@ router.post("/auth/create-account", requireAuth, requireRole("admin"), async (re
     password,
     email_confirm: true,
     app_metadata: appMeta,
+    user_metadata: appMeta,
   });
 
   if (authError || !authData.user) {
@@ -376,6 +403,7 @@ router.post("/auth/bulk-create-accounts", requireAuth, requireRole("admin"), asy
       password,
       email_confirm: true,
       app_metadata: appMeta,
+      user_metadata: appMeta,
     });
 
     if (authError || !authData.user) {
