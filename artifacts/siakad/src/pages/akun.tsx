@@ -805,7 +805,7 @@ export default function AkunPage() {
 
           <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-1 [scrollbar-width:thin]">
             {(() => {
-              const filtered = (siswaList ?? []).filter((s) =>
+              const filtered = (siswaList?.data ?? []).filter((s) =>
                 s.nama.toLowerCase().includes(siswaSearch.toLowerCase())
               );
               if (!filtered.length) {
