@@ -10,7 +10,7 @@ async function createSiswaRecord(full_name: string, jenis_kelamin: string, kelas
     .insert({
       nama: full_name,
       jenis_kelamin,
-      kelas_id: kelas_id ? Number(kelas_id) : null,
+      kelas_id: kelas_id || null,
       nis: nis || "",
       nisn: "",
       tanggal_lahir: "2000-01-01",
