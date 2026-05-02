@@ -17,6 +17,7 @@ import AbsensiPage from "@/pages/absensi";
 import NilaiPage from "@/pages/nilai";
 import RaportPage from "@/pages/raport";
 import AkunPage from "@/pages/akun";
+import ProfilPage from "@/pages/profil";
 
 import Layout from "@/components/layout/Layout";
 
@@ -83,6 +84,10 @@ function Router() {
 
       <Route path="/akun">
         {() => <ProtectedRoute component={AkunPage} allowedRoles={["admin"]} />}
+      </Route>
+
+      <Route path="/profil">
+        {() => <ProtectedRoute component={ProfilPage} />}
       </Route>
 
       <Route component={NotFound} />

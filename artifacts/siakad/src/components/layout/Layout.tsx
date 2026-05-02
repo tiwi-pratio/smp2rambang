@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import {
@@ -19,8 +19,17 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   KeyRound,
+  UserCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const getRoleBadgeStyle = (role?: string) => {
   switch (role) {
@@ -83,6 +92,9 @@ const getSiswaMenu = () => [
     { title: "Nilai", icon: FileText, url: "/nilai" },
     { title: "Raport", icon: GraduationCap, url: "/raport" },
   ]},
+  { group: "Akun", items: [
+    { title: "Profil Saya", icon: UserCircle, url: "/profil" },
+  ]},
 ];
 
 const getMenuGroups = (role?: string) => {
@@ -103,6 +115,7 @@ const getPageTitle = (pathname: string) => {
     "/absensi": "Absensi",
     "/nilai": "Data Nilai",
     "/raport": "Raport Siswa",
+    "/profil": "Profil Saya",
   };
   for (const key of Object.keys(map)) {
     if (pathname.startsWith(key)) return map[key];
@@ -237,6 +250,17 @@ function SidebarNav({ user, location, collapsed, onNavigate, onLogout }: Sidebar
   );
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+
+function isProfileComplete(data: any) {
+  return (
+    data?.nisn && data.nisn !== "" &&
+    data?.tanggal_lahir && data.tanggal_lahir !== "2000-01-01" &&
+    data?.alamat && data.alamat !== "" &&
+    data?.no_hp_ortu && data.no_hp_ortu !== ""
+  );
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [, setLocation] = useLocation();
@@ -244,6 +268,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const { data: user } = useGetMe();
   const logoutMutation = useLogout();
+  const [showProfileNotif, setShowProfileNotif] = useState(false);
+
+  useEffect(() => {
+    if (user?.role !== "siswa") return;
+    const alreadyShown = sessionStorage.getItem("profil_notif_shown");
+    if (alreadyShown) return;
+    const token = localStorage.getItem("siakad_token");
+    if (!token) return;
+    fetch(`${API_BASE}/auth/me/siswa`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!isProfileComplete(data)) {
+          setShowProfileNotif(true);
+          sessionStorage.setItem("profil_notif_shown", "1");
+        }
+      })
+      .catch(() => {});
+  }, [user?.role]);
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -358,6 +402,42 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Incomplete profile notification modal — siswa only */}
+      <Dialog open={showProfileNotif} onOpenChange={setShowProfileNotif}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-xl p-0 gap-0">
+          <div className="p-5">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 mx-auto mb-4">
+              <AlertTriangle className="h-6 w-6 text-amber-600" />
+            </div>
+            <DialogHeader className="text-center space-y-1">
+              <DialogTitle className="text-base">Lengkapi Data Pribadimu</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Data profilmu belum lengkap. Segera isi NISN, tanggal lahir, alamat, dan nomor HP orang tua agar data akademikmu tercatat dengan benar.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="px-5 pb-5 flex flex-col gap-2">
+            <Button
+              className="w-full"
+              onClick={() => {
+                setShowProfileNotif(false);
+                setLocation("/profil");
+              }}
+            >
+              <UserCircle className="h-4 w-4 mr-2" />
+              Lengkapi Sekarang
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => setShowProfileNotif(false)}
+            >
+              Nanti Saja
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

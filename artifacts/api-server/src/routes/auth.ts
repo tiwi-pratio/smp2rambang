@@ -82,7 +82,47 @@ router.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res) => {
     email: req.user!.email,
     role: req.user!.role,
     full_name: req.user!.full_name,
+    siswa_id: req.user!.siswa_id || null,
+    guru_id: req.user!.guru_id || null,
   });
+});
+
+router.get("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: AuthenticatedRequest, res) => {
+  const siswaId = req.user!.siswa_id;
+  if (!siswaId) {
+    res.status(404).json({ error: "Not Found", message: "Data siswa tidak ditemukan" });
+    return;
+  }
+  const { data, error } = await supabase
+    .from("siswa")
+    .select("*, kelas:kelas_id(id, nama_kelas, tingkat, tahun_ajaran)")
+    .eq("id", siswaId)
+    .single();
+  if (error || !data) {
+    res.status(404).json({ error: "Not Found", message: "Data siswa tidak ditemukan" });
+    return;
+  }
+  res.json(data);
+});
+
+router.put("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: AuthenticatedRequest, res) => {
+  const siswaId = req.user!.siswa_id;
+  if (!siswaId) {
+    res.status(404).json({ error: "Not Found", message: "Data siswa tidak ditemukan" });
+    return;
+  }
+  const { nisn, tanggal_lahir, alamat, no_hp_ortu } = req.body;
+  const { data, error } = await supabase
+    .from("siswa")
+    .update({ nisn, tanggal_lahir, alamat, no_hp_ortu })
+    .eq("id", siswaId)
+    .select("*, kelas:kelas_id(id, nama_kelas, tingkat, tahun_ajaran)")
+    .single();
+  if (error || !data) {
+    res.status(400).json({ error: "Bad Request", message: error?.message || "Gagal memperbarui data" });
+    return;
+  }
+  res.json(data);
 });
 
 router.get("/auth/accounts", requireAuth, requireRole("admin"), async (_req: AuthenticatedRequest, res) => {
