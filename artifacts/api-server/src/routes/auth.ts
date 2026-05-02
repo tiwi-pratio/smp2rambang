@@ -14,6 +14,8 @@ async function createSiswaRecord(full_name: string, jenis_kelamin: string, kelas
       nis: nis || "",
       nisn: "",
       tanggal_lahir: "2000-01-01",
+      alamat: "",
+      no_hp_ortu: "",
     })
     .select("id")
     .single();
