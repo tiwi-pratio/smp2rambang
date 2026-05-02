@@ -9,14 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-
 function getToken() {
-  return localStorage.getItem("siakad_token");
+  return localStorage.getItem("siakad_token") || "";
 }
 
 async function fetchMySiswa() {
-  const res = await fetch(`${API_BASE}/auth/me/siswa`, {
+  const res = await fetch(`/api/auth/me/siswa`, {
     headers: { Authorization: `Bearer ${getToken()}` },
   });
   if (!res.ok) throw new Error("Gagal memuat data profil");
@@ -24,7 +22,7 @@ async function fetchMySiswa() {
 }
 
 async function updateMySiswa(body: Record<string, string>) {
-  const res = await fetch(`${API_BASE}/auth/me/siswa`, {
+  const res = await fetch(`/api/auth/me/siswa`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${getToken()}`,

@@ -250,8 +250,6 @@ function SidebarNav({ user, location, collapsed, onNavigate, onLogout }: Sidebar
   );
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-
 function isProfileComplete(data: any) {
   return (
     data?.nisn && data.nisn !== "" &&
@@ -276,7 +274,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (alreadyShown) return;
     const token = localStorage.getItem("siakad_token");
     if (!token) return;
-    fetch(`${API_BASE}/auth/me/siswa`, {
+    fetch(`/api/auth/me/siswa`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
@@ -294,6 +292,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       onSuccess: () => {
         localStorage.removeItem("siakad_token");
         localStorage.removeItem("siakad_user");
+        sessionStorage.removeItem("profil_notif_shown");
         setLocation("/login");
       },
     });

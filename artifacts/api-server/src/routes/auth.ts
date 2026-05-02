@@ -87,10 +87,17 @@ router.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res) => {
   });
 });
 
+async function resolveSiswaId(req: AuthenticatedRequest): Promise<string | null> {
+  if (req.user!.siswa_id) return req.user!.siswa_id;
+  // Fallback: re-fetch app_metadata from Supabase admin API (handles stale JWTs)
+  const { data } = await supabase.auth.admin.getUserById(req.user!.id);
+  return data?.user?.app_metadata?.siswa_id || null;
+}
+
 router.get("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: AuthenticatedRequest, res) => {
-  const siswaId = req.user!.siswa_id;
+  const siswaId = await resolveSiswaId(req);
   if (!siswaId) {
-    res.status(404).json({ error: "Not Found", message: "Data siswa tidak ditemukan" });
+    res.status(404).json({ error: "Not Found", message: "Akun ini belum terhubung ke data siswa. Hubungi admin." });
     return;
   }
   const { data, error } = await supabase
@@ -106,9 +113,9 @@ router.get("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: Auth
 });
 
 router.put("/auth/me/siswa", requireAuth, requireRole("siswa"), async (req: AuthenticatedRequest, res) => {
-  const siswaId = req.user!.siswa_id;
+  const siswaId = await resolveSiswaId(req);
   if (!siswaId) {
-    res.status(404).json({ error: "Not Found", message: "Data siswa tidak ditemukan" });
+    res.status(404).json({ error: "Not Found", message: "Akun ini belum terhubung ke data siswa. Hubungi admin." });
     return;
   }
   const { nisn, tanggal_lahir, alamat, no_hp_ortu } = req.body;
