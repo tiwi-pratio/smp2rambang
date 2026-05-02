@@ -7,7 +7,14 @@ const router = Router();
 async function createSiswaRecord(full_name: string, jenis_kelamin: string, kelas_id?: string, nis?: string) {
   const { data, error } = await supabase
     .from("siswa")
-    .insert({ nama: full_name, jenis_kelamin, kelas_id: kelas_id ? Number(kelas_id) : null, nis: nis || null })
+    .insert({
+      nama: full_name,
+      jenis_kelamin,
+      kelas_id: kelas_id ? Number(kelas_id) : null,
+      nis: nis || "",
+      nisn: "",
+      tanggal_lahir: null,
+    })
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message || "Gagal membuat data siswa");

@@ -349,133 +349,140 @@ export default function AkunPage() {
 
       {/* Create single dialog */}
       <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Buat Akun Login Baru</DialogTitle>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-xl p-0 gap-0 max-h-[85dvh] flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-2 shrink-0">
+            <DialogTitle className="text-base">Buat Akun Login Baru</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="full_name">Nama Lengkap</Label>
-              <Input
-                id="full_name"
-                placeholder="Nama lengkap pengguna"
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@contoh.com"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Minimal 8 karakter"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select
-                value={form.role}
-                onValueChange={(v) =>
-                  setForm({ ...form, role: v as "guru" | "siswa", kelas_id: "", nis: "", nip: "" })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="siswa">Siswa</SelectItem>
-                  <SelectItem value="guru">Guru</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {form.role === "siswa" && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>
-                    Jenis Kelamin <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={form.jenis_kelamin}
-                    onValueChange={(v) => setForm({ ...form, jenis_kelamin: v as "L" | "P" })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih jenis kelamin..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="L">Laki-laki</SelectItem>
-                      <SelectItem value="P">Perempuan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>
-                    Kelas <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={form.kelas_id}
-                    onValueChange={(v) => setForm({ ...form, kelas_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih kelas..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(kelasList || []).map((k) => (
-                        <SelectItem key={k.id} value={String(k.id)}>
-                          {k.nama_kelas}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="nis">
-                    NIS <span className="text-muted-foreground text-xs">(opsional)</span>
-                  </Label>
-                  <Input
-                    id="nis"
-                    placeholder="Nomor Induk Siswa"
-                    value={form.nis}
-                    onChange={(e) => setForm({ ...form, nis: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-
-            {form.role === "guru" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="nip">
-                  NIP <span className="text-muted-foreground text-xs">(opsional)</span>
-                </Label>
+          <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-4 pb-2">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="full_name" className="text-sm">Nama Lengkap</Label>
                 <Input
-                  id="nip"
-                  placeholder="Nomor Induk Pegawai"
-                  value={form.nip}
-                  onChange={(e) => setForm({ ...form, nip: e.target.value })}
+                  id="full_name"
+                  placeholder="Nama lengkap pengguna"
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  className="h-9 text-sm"
                 />
               </div>
-            )}
+              <div className="space-y-1">
+                <Label htmlFor="email" className="text-sm">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="email@contoh.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="password" className="text-sm">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Minimal 8 karakter"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Role</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) =>
+                    setForm({ ...form, role: v as "guru" | "siswa", kelas_id: "", nis: "", nip: "", jenis_kelamin: "" })
+                  }
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="siswa">Siswa</SelectItem>
+                    <SelectItem value="guru">Guru</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {form.role === "siswa" && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-sm">
+                      Jenis Kelamin <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={form.jenis_kelamin}
+                      onValueChange={(v) => setForm({ ...form, jenis_kelamin: v as "L" | "P" })}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Pilih jenis kelamin..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="L">Laki-laki</SelectItem>
+                        <SelectItem value="P">Perempuan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm">
+                      Kelas <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={form.kelas_id}
+                      onValueChange={(v) => setForm({ ...form, kelas_id: v })}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Pilih kelas..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(kelasList || []).map((k) => (
+                          <SelectItem key={k.id} value={String(k.id)}>
+                            {k.nama_kelas}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="nis" className="text-sm">
+                      NIS <span className="text-muted-foreground text-xs">(opsional)</span>
+                    </Label>
+                    <Input
+                      id="nis"
+                      placeholder="Nomor Induk Siswa"
+                      value={form.nis}
+                      onChange={(e) => setForm({ ...form, nis: e.target.value })}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </>
+              )}
+
+              {form.role === "guru" && (
+                <div className="space-y-1">
+                  <Label htmlFor="nip" className="text-sm">
+                    NIP <span className="text-muted-foreground text-xs">(opsional)</span>
+                  </Label>
+                  <Input
+                    id="nip"
+                    placeholder="Nomor Induk Pegawai"
+                    value={form.nip}
+                    onChange={(e) => setForm({ ...form, nip: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter className="pt-2">
-            <Button variant="outline" onClick={() => setOpenCreate(false)}>
+          <div className="px-4 py-3 border-t shrink-0 flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setOpenCreate(false)}>
               Batal
             </Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+            <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending}>
               {createMutation.isPending ? "Membuat..." : "Buat Akun"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
