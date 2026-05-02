@@ -11,8 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Loader2, School } from "lucide-react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ROMBEL_OPTIONS, buildNamaKelas, parseRombelFromNamaKelas } from "@/lib/kelas-utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,10 +49,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 
 const kelasSchema = z.object({
-  nama_kelas: z.string().min(1, "Nama kelas diperlukan"),
-  tingkat: z.coerce.number().min(1, "Tingkat kelas diperlukan"),
+  tingkat: z.coerce.number().min(7).max(9),
+  rombel: z.string().min(1, "Rombel diperlukan"),
   wali_kelas_id: z.string().optional(),
-  tahun_ajaran: z.string().min(1, "Tahun ajaran diperlukan (misal: 2023/2024)"),
+  tahun_ajaran: z.string().min(1, "Tahun ajaran diperlukan (misal: 2024/2025)"),
 });
 
 type KelasFormValues = z.infer<typeof kelasSchema>;
@@ -73,16 +74,22 @@ export default function KelasPage() {
   const form = useForm<KelasFormValues>({
     resolver: zodResolver(kelasSchema),
     defaultValues: {
-      nama_kelas: "",
       tingkat: 7,
+      rombel: "",
       wali_kelas_id: "",
-      tahun_ajaran: "2023/2024",
+      tahun_ajaran: new Date().getFullYear() + "/" + (new Date().getFullYear() + 1),
     },
   });
 
+  const watchedTingkat = useWatch({ control: form.control, name: "tingkat" });
+  const watchedRombel = useWatch({ control: form.control, name: "rombel" });
+  const previewNamaKelas = watchedRombel ? buildNamaKelas(watchedTingkat, watchedRombel) : "";
+
   const onSubmit = (values: KelasFormValues) => {
     const payload = {
-      ...values,
+      nama_kelas: buildNamaKelas(values.tingkat, values.rombel),
+      tingkat: values.tingkat,
+      tahun_ajaran: values.tahun_ajaran,
       wali_kelas_id: values.wali_kelas_id || null,
     };
 
@@ -115,8 +122,8 @@ export default function KelasPage() {
   const openEdit = (kelas: any) => {
     setEditingKelas(kelas);
     form.reset({
-      nama_kelas: kelas.nama_kelas,
       tingkat: kelas.tingkat,
+      rombel: parseRombelFromNamaKelas(kelas.nama_kelas),
       wali_kelas_id: kelas.wali_kelas_id || "",
       tahun_ajaran: kelas.tahun_ajaran,
     });
@@ -167,37 +174,53 @@ export default function KelasPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="nama_kelas"
-                    render={({ field }) => (
-                      <FormItem className="col-span-2">
-                        <FormLabel>Nama Kelas</FormLabel>
-                        <FormControl><Input placeholder="Contoh: VII A" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
                     name="tingkat"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tingkat</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                        <Select onValueChange={(v) => { field.onChange(v); form.setValue("rombel", ""); }} value={String(field.value)}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Pilih Tingkat" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="7">Tingkat 7</SelectItem>
-                            <SelectItem value="8">Tingkat 8</SelectItem>
-                            <SelectItem value="9">Tingkat 9</SelectItem>
+                            <SelectItem value="7">Kelas 7</SelectItem>
+                            <SelectItem value="8">Kelas 8</SelectItem>
+                            <SelectItem value="9">Kelas 9</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="rombel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rombel</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih Rombel" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {ROMBEL_OPTIONS.map((r) => (
+                              <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {previewNamaKelas && (
+                    <div className="col-span-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-sm">
+                      Nama kelas: <strong>{previewNamaKelas}</strong>
+                    </div>
+                  )}
                   <FormField
                     control={form.control}
                     name="tahun_ajaran"

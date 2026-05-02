@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KelasSelector } from "@/components/ui/kelas-selector";
 
 const siswaSchema = z.object({
   nis: z.string().optional(),
@@ -219,22 +220,15 @@ export default function SiswaPage() {
                     control={form.control}
                     name="kelas_id"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="md:col-span-2">
                         <FormLabel>Kelas</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih Kelas" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {!kelasData?.length
-                              ? <SelectItem value="__none__" disabled>Belum ada kelas</SelectItem>
-                              : kelasData.map(k => (
-                                <SelectItem key={k.id} value={String(k.id)}>{k.nama_kelas}</SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <KelasSelector
+                            kelasList={kelasData ?? []}
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

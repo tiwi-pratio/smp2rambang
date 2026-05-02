@@ -52,6 +52,7 @@ import {
   Link2,
   Search,
 } from "lucide-react";
+import { KelasSelector } from "@/components/ui/kelas-selector";
 
 const roleBadge = (role: string) => {
   switch (role) {
@@ -367,11 +368,11 @@ export default function AkunPage() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {roleBadge(acc.role)}
-                  {acc.role === "siswa" && !acc.siswa_id && (
+                  {acc.role === "siswa" && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs gap-1 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100"
+                      className={`h-7 text-xs gap-1 ${acc.siswa_id ? "text-muted-foreground border-muted-foreground/30 hover:bg-muted/50" : "text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100"}`}
                       onClick={() => {
                         setSiswaSearch("");
                         setSelectedSiswaId("");
@@ -379,7 +380,7 @@ export default function AkunPage() {
                       }}
                     >
                       <Link2 className="h-3 w-3" />
-                      Link
+                      {acc.siswa_id ? "Ganti" : "Link"}
                     </Button>
                   )}
                   {acc.role !== "admin" && (
@@ -482,21 +483,11 @@ export default function AkunPage() {
                     <Label className="text-sm">
                       Kelas <span className="text-destructive">*</span>
                     </Label>
-                    <Select
+                    <KelasSelector
+                      kelasList={kelasList ?? []}
                       value={form.kelas_id}
                       onValueChange={(v) => setForm({ ...form, kelas_id: v })}
-                    >
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder="Pilih kelas..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(kelasList || []).map((k) => (
-                          <SelectItem key={k.id} value={String(k.id)}>
-                            {k.nama_kelas}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="nis" className="text-sm">

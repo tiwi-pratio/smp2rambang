@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   useListJadwal, 
   useCreateJadwal, 
@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KelasSelector } from "@/components/ui/kelas-selector";
 
 const HARI_OPTIONS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const;
 
@@ -71,6 +72,7 @@ export default function JadwalPage() {
   const isSiswa = user?.role === 'siswa';
 
   const [selectedKelas, setSelectedKelas] = useState<string>("all");
+  const [filterTingkat, setFilterTingkat] = useState<string>("all");
   const [siswaKelas, setSiswaKelas] = useState<{ id: string; nama_kelas: string } | null>(null);
   // tracks whether we've finished resolving the siswa's kelas_id
   const [siswaKelasResolved, setSiswaKelasResolved] = useState(false);
@@ -115,6 +117,13 @@ export default function JadwalPage() {
   const { data: kelasData } = useListKelas();
   const { data: mapelData } = useListMataPelajaran();
   const { data: guruData } = useListGuru();
+
+  const kelasByTingkat = useMemo(() => {
+    if (!kelasData) return [];
+    return filterTingkat !== "all"
+      ? kelasData.filter((k) => String(k.tingkat) === filterTingkat)
+      : kelasData;
+  }, [kelasData, filterTingkat]);
 
   const createMutation = useCreateJadwal();
   const deleteMutation = useDeleteJadwal();
@@ -183,17 +192,36 @@ export default function JadwalPage() {
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {!isSiswa && (
-            <Select value={selectedKelas} onValueChange={setSelectedKelas}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Pilih Kelas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Kelas</SelectItem>
-                {kelasData?.map(k => (
-                  <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select
+                value={filterTingkat}
+                onValueChange={(v) => {
+                  setFilterTingkat(v);
+                  setSelectedKelas("all");
+                }}
+              >
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Tingkat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Tingkat</SelectItem>
+                  <SelectItem value="7">Kelas 7</SelectItem>
+                  <SelectItem value="8">Kelas 8</SelectItem>
+                  <SelectItem value="9">Kelas 9</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedKelas} onValueChange={setSelectedKelas}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Pilih Kelas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kelas</SelectItem>
+                  {kelasByTingkat.map(k => (
+                    <SelectItem key={k.id} value={String(k.id)}>{k.nama_kelas}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {isAdmin && (
@@ -263,18 +291,13 @@ export default function JadwalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Kelas</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Pilih Kelas" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {kelasData?.map(k => (
-                                <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <KelasSelector
+                              kelasList={kelasData ?? []}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
