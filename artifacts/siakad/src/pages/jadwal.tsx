@@ -77,6 +77,8 @@ export default function JadwalPage() {
   // tracks whether we've finished resolving the siswa's kelas_id
   const [siswaKelasResolved, setSiswaKelasResolved] = useState(false);
   const [siswaKelasId, setSiswaKelasId] = useState<string | null>(null);
+  // null = belum resolve, "not_linked" = akun belum terhubung ke siswa, "no_kelas" = siswa ada tapi kelas belum di-assign, "fetch_error" = error jaringan
+  const [siswaFetchStatus, setSiswaFetchStatus] = useState<"ok" | "not_linked" | "no_kelas" | "fetch_error" | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const queryClient = useQueryClient();
@@ -90,16 +92,24 @@ export default function JadwalPage() {
       return;
     }
     fetchMySiswa().then((data) => {
-      if (data?.kelas_id) {
+      if (data === null) {
+        // 404: akun tidak terhubung ke record siswa sama sekali
+        setSiswaKelasId(null);
+        setSiswaFetchStatus("not_linked");
+      } else if (data?.kelas_id) {
         const kid = String(data.kelas_id);
         setSiswaKelasId(kid);
         setSelectedKelas(kid);
         setSiswaKelas(data.kelas ?? null);
+        setSiswaFetchStatus("ok");
       } else {
+        // Siswa ada di database tapi kelas_id belum di-set oleh admin
         setSiswaKelasId(null);
+        setSiswaFetchStatus("no_kelas");
       }
     }).catch(() => {
       setSiswaKelasId(null);
+      setSiswaFetchStatus("fetch_error");
     }).finally(() => {
       setSiswaKelasResolved(true);
     });
@@ -364,13 +374,31 @@ export default function JadwalPage() {
       {isSiswa && siswaKelasResolved && !siswaKelasId ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <div className="bg-amber-100 p-4 rounded-full">
-              <Calendar className="h-8 w-8 text-amber-500" />
+            <div className={`p-4 rounded-full ${siswaFetchStatus === "fetch_error" ? "bg-red-100" : "bg-amber-100"}`}>
+              <Calendar className={`h-8 w-8 ${siswaFetchStatus === "fetch_error" ? "text-red-500" : "text-amber-500"}`} />
             </div>
-            <p className="font-semibold text-foreground">Kelas belum terdaftar</p>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Akun kamu belum terhubung ke kelas. Hubungi admin untuk menghubungkan akun ke kelas yang sesuai.
-            </p>
+            {siswaFetchStatus === "fetch_error" ? (
+              <>
+                <p className="font-semibold text-foreground">Gagal memuat data</p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Terjadi kesalahan saat mengambil data jadwal. Coba muat ulang halaman.
+                </p>
+              </>
+            ) : siswaFetchStatus === "not_linked" ? (
+              <>
+                <p className="font-semibold text-foreground">Akun belum terhubung</p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Akun kamu belum terhubung ke data siswa. Hubungi admin untuk menghubungkan akun kamu ke data siswa yang sesuai.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-foreground">Kelas belum di-assign</p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Data siswa kamu sudah ada, tapi belum di-assign ke kelas. Hubungi admin untuk mengisi data kelas kamu di halaman Manajemen Siswa.
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (
