@@ -431,4 +431,56 @@ router.delete("/auth/delete-account/:supabase_id", requireAuth, requireRole("adm
   res.json({ success: true, message: "Akun berhasil dihapus" });
 });
 
+// Link an existing siswa account to a siswa record (repair broken/unlinked accounts)
+router.post("/auth/link-siswa/:supabase_id", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res) => {
+  const { supabase_id } = req.params;
+  const { siswa_id } = req.body;
+
+  if (!siswa_id) {
+    res.status(400).json({ error: "Bad Request", message: "siswa_id diperlukan" });
+    return;
+  }
+
+  // Verify the account exists and is a siswa
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, full_name")
+    .eq("supabase_id", supabase_id)
+    .single();
+
+  if (!profile) {
+    res.status(404).json({ error: "Not Found", message: "Akun tidak ditemukan" });
+    return;
+  }
+
+  if (profile.role !== "siswa") {
+    res.status(400).json({ error: "Bad Request", message: "Akun ini bukan akun siswa" });
+    return;
+  }
+
+  // Verify the siswa record exists
+  const { data: siswa } = await supabase
+    .from("siswa")
+    .select("id, nama, kelas_id")
+    .eq("id", siswa_id)
+    .single();
+
+  if (!siswa) {
+    res.status(404).json({ error: "Not Found", message: "Data siswa tidak ditemukan" });
+    return;
+  }
+
+  // Update app_metadata to link the siswa_id
+  const { error } = await supabase.auth.admin.updateUserById(supabase_id, {
+    app_metadata: { siswa_id: siswa_id },
+  });
+
+  if (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+    return;
+  }
+
+  res.json({ success: true, message: `Akun berhasil dihubungkan ke data siswa ${siswa.nama}` });
+});
+
 export default router;

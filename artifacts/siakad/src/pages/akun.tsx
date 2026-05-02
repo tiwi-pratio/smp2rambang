@@ -6,6 +6,7 @@ import {
   useDeleteAccount,
   useBulkCreateAccounts,
   useListKelas,
+  useListSiswa,
   getListAccountsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ import {
   XCircle,
   CheckCircle2,
   AlertCircle,
+  Link2,
+  Search,
 } from "lucide-react";
 
 const roleBadge = (role: string) => {
@@ -107,6 +110,7 @@ export default function AkunPage() {
 
   const { data: accounts, isLoading } = useListAccounts();
   const { data: kelasList } = useListKelas();
+  const { data: siswaList } = useListSiswa();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openBulk, setOpenBulk] = useState(false);
@@ -114,6 +118,14 @@ export default function AkunPage() {
     id: string;
     name: string;
   } | null>(null);
+
+  const [linkTarget, setLinkTarget] = useState<{
+    supabase_id: string;
+    full_name: string;
+  } | null>(null);
+  const [siswaSearch, setSiswaSearch] = useState("");
+  const [selectedSiswaId, setSelectedSiswaId] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
@@ -210,6 +222,33 @@ export default function AkunPage() {
   const handleDelete = () => {
     if (!deleteTarget) return;
     deleteMutation.mutate({ supabaseId: deleteTarget.id });
+  };
+
+  const handleLinkSiswa = async () => {
+    if (!linkTarget || !selectedSiswaId) return;
+    setIsLinking(true);
+    try {
+      const token = localStorage.getItem("siakad_token") || "";
+      const res = await fetch(`/api/auth/link-siswa/${linkTarget.supabase_id}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ siswa_id: selectedSiswaId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Gagal menghubungkan akun");
+      toast({ title: "Berhasil", description: data.message });
+      queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+      setLinkTarget(null);
+      setSiswaSearch("");
+      setSelectedSiswaId("");
+    } catch (err: any) {
+      toast({ title: "Gagal", description: err.message, variant: "destructive" });
+    } finally {
+      setIsLinking(false);
+    }
   };
 
   const handleBulkSubmit = () => {
@@ -326,8 +365,23 @@ export default function AkunPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0 ml-3">
+                <div className="flex items-center gap-2 shrink-0 ml-3">
                   {roleBadge(acc.role)}
+                  {acc.role === "siswa" && !acc.siswa_id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100"
+                      onClick={() => {
+                        setSiswaSearch("");
+                        setSelectedSiswaId("");
+                        setLinkTarget({ supabase_id: acc.supabase_id, full_name: acc.full_name });
+                      }}
+                    >
+                      <Link2 className="h-3 w-3" />
+                      Link
+                    </Button>
+                  )}
                   {acc.role !== "admin" && (
                     <Button
                       variant="ghost"
@@ -717,6 +771,97 @@ export default function AkunPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Link Akun ke Data Siswa dialog */}
+      <Dialog
+        open={!!linkTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLinkTarget(null);
+            setSiswaSearch("");
+            setSelectedSiswaId("");
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-xl p-0 gap-0 max-h-[85dvh] flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-2 shrink-0">
+            <DialogTitle className="text-base">Hubungkan Akun ke Data Siswa</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Akun: <strong>{linkTarget?.full_name}</strong>
+            </p>
+          </DialogHeader>
+
+          <div className="px-4 pb-2 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Cari nama siswa..."
+                value={siswaSearch}
+                onChange={(e) => setSiswaSearch(e.target.value)}
+                className="pl-8 h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-1 [scrollbar-width:thin]">
+            {(() => {
+              const filtered = (siswaList ?? []).filter((s) =>
+                s.nama.toLowerCase().includes(siswaSearch.toLowerCase())
+              );
+              if (!filtered.length) {
+                return (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    {siswaSearch ? "Siswa tidak ditemukan" : "Belum ada data siswa"}
+                  </div>
+                );
+              }
+              return filtered.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSiswaId(s.id)}
+                  className={`w-full text-left rounded-lg px-3 py-2.5 text-sm transition-colors border ${
+                    selectedSiswaId === s.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-transparent hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="font-medium">{s.nama}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {s.kelas?.nama ? (
+                      <span className="text-emerald-600">{s.kelas.nama}</span>
+                    ) : (
+                      <span className="text-muted-foreground/60">Belum ada kelas</span>
+                    )}
+                    {s.nis && <span className="ml-2">· NIS: {s.nis}</span>}
+                  </div>
+                </button>
+              ));
+            })()}
+          </div>
+
+          <DialogFooter className="px-4 py-3 border-t shrink-0 flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setLinkTarget(null);
+                setSiswaSearch("");
+                setSelectedSiswaId("");
+              }}
+            >
+              Batal
+            </Button>
+            <Button
+              className="flex-1 gap-1.5"
+              disabled={!selectedSiswaId || isLinking}
+              onClick={handleLinkSiswa}
+            >
+              <Link2 className="h-4 w-4" />
+              {isLinking ? "Menghubungkan..." : "Hubungkan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
