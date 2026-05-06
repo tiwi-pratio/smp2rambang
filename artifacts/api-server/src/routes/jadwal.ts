@@ -34,10 +34,43 @@ async function enrichJadwal(jadwalList: any[]) {
 }
 
 router.get("/jadwal", requireAuth, async (req: AuthenticatedRequest, res) => {
-  const { kelas_id, guru_id } = req.query as Record<string, string>;
+  const { kelas_id: queryKelasId, guru_id } = req.query as Record<string, string>;
+
+  let effectiveKelasId: string | undefined = queryKelasId;
+
+  if (req.user!.role === "siswa") {
+    let siswaId: number | string | null = req.user!.siswa_id || null;
+
+    if (!siswaId) {
+      const { data: rows } = await supabase
+        .from("siswa")
+        .select("id")
+        .eq("nama", req.user!.full_name)
+        .limit(2);
+      if (rows && rows.length === 1) siswaId = rows[0].id;
+    }
+
+    if (!siswaId) {
+      res.json([]);
+      return;
+    }
+
+    const { data: siswa } = await supabase
+      .from("siswa")
+      .select("kelas_id")
+      .eq("id", siswaId)
+      .single();
+
+    if (!siswa?.kelas_id) {
+      res.json([]);
+      return;
+    }
+
+    effectiveKelasId = String(siswa.kelas_id);
+  }
 
   let query = supabase.from("jadwal").select("*").order("hari").order("jam_mulai");
-  if (kelas_id) query = query.eq("kelas_id", kelas_id);
+  if (effectiveKelasId) query = query.eq("kelas_id", effectiveKelasId);
   if (guru_id) query = query.eq("guru_id", guru_id);
 
   const { data, error } = await query;

@@ -44,6 +44,17 @@ export default function Login() {
         onSuccess: (data) => {
           localStorage.setItem("siakad_token", data.access_token);
           localStorage.setItem("siakad_user", JSON.stringify(data.user));
+          const d = data as any;
+          if (d.kelas_id) {
+            localStorage.setItem("siakad_siswa_kelas_id", String(d.kelas_id));
+          } else {
+            localStorage.removeItem("siakad_siswa_kelas_id");
+          }
+          if (d.siswa_id) {
+            localStorage.setItem("siakad_siswa_id", String(d.siswa_id));
+          } else {
+            localStorage.removeItem("siakad_siswa_id");
+          }
           toast({
             title: "Login berhasil",
             description: `Selamat datang, ${data.user.full_name}`,

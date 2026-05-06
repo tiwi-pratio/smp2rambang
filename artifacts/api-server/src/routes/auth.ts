@@ -67,6 +67,43 @@ router.post("/auth/login", async (req, res) => {
     return;
   }
 
+  let loginKelasId: string | null = null;
+  let loginSiswaId: string | null = null;
+
+  if (profile.role === "siswa") {
+    let siswaId: number | string | null =
+      data.user.app_metadata?.siswa_id ||
+      data.user.user_metadata?.siswa_id ||
+      null;
+
+    if (!siswaId) {
+      const { data: siswaRows } = await supabase
+        .from("siswa")
+        .select("id")
+        .eq("nama", profile.full_name)
+        .limit(2);
+      if (siswaRows && siswaRows.length === 1) {
+        siswaId = siswaRows[0].id;
+        supabase.auth.admin.updateUserById(data.user.id, {
+          app_metadata: { siswa_id: siswaId },
+          user_metadata: { siswa_id: siswaId },
+        }).catch(() => {});
+      }
+    }
+
+    if (siswaId) {
+      loginSiswaId = String(siswaId);
+      const { data: siswa } = await supabase
+        .from("siswa")
+        .select("kelas_id")
+        .eq("id", siswaId)
+        .single();
+      if (siswa?.kelas_id) {
+        loginKelasId = String(siswa.kelas_id);
+      }
+    }
+  }
+
   res.json({
     user: {
       id: data.user.id,
@@ -77,6 +114,8 @@ router.post("/auth/login", async (req, res) => {
     },
     access_token: data.session.access_token,
     refresh_token: data.session.refresh_token,
+    ...(loginSiswaId ? { siswa_id: loginSiswaId } : {}),
+    ...(loginKelasId ? { kelas_id: loginKelasId } : {}),
   });
 });
 

@@ -299,6 +299,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       onSuccess: () => {
         localStorage.removeItem("siakad_token");
         localStorage.removeItem("siakad_user");
+        localStorage.removeItem("siakad_siswa_kelas_id");
+        localStorage.removeItem("siakad_siswa_id");
         sessionStorage.removeItem("profil_notif_shown");
         setLocation("/login");
       },
