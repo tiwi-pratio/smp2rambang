@@ -69,25 +69,73 @@ router.get("/dashboard/siswa-stats", requireAuth, async (req: AuthenticatedReque
   const hariIni = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][new Date().getDay()];
   const bulanIni = new Date().toISOString().slice(0, 7);
 
-  // Ambil jadwal hari ini
-  const { data: jadwalRes } = await supabase
+  // Resolve siswa_id
+  let siswaId: number | string | null = req.user!.siswa_id || null;
+  if (!siswaId) {
+    const { data: rows } = await supabase
+      .from("siswa")
+      .select("id")
+      .eq("nama", req.user!.full_name)
+      .limit(2);
+    if (rows && rows.length === 1) siswaId = rows[0].id;
+  }
+
+  // Get siswa + kelas info
+  let kelasId: number | null = null;
+  let kelasNama = "-";
+  if (siswaId) {
+    const { data: siswa } = await supabase
+      .from("siswa")
+      .select("kelas_id, kelas:kelas_id(id, nama_kelas)")
+      .eq("id", siswaId)
+      .single();
+    if (siswa?.kelas_id) {
+      kelasId = siswa.kelas_id;
+      kelasNama = (siswa as any).kelas?.nama_kelas || "-";
+    }
+  }
+
+  // Jadwal hari ini untuk kelas siswa
+  const jadwalQuery = supabase
     .from("jadwal")
     .select("*, mata_pelajaran(id, nama_mapel, kode_mapel), guru(id, nama)")
     .eq("hari", hariIni)
-    .limit(5);
+    .limit(8);
+  const { data: jadwalRes } = kelasId
+    ? await jadwalQuery.eq("kelas_id", kelasId)
+    : await jadwalQuery;
 
-  // Ambil nilai terbaru
-  const { data: nilaiRes } = await supabase
+  // Nilai terbaru untuk siswa ini
+  const nilaiQuery = supabase
     .from("nilai")
     .select("*, mata_pelajaran(id, nama_mapel, kode_mapel)")
     .order("id", { ascending: false })
     .limit(5);
+  const { data: nilaiRes } = siswaId
+    ? await nilaiQuery.eq("siswa_id", siswaId)
+    : { data: [] };
 
+  // Rekap absensi bulan ini untuk siswa ini
   const rekap = { hadir: 0, izin: 0, sakit: 0, alfa: 0, total: 0 };
+  if (siswaId) {
+    const { data: absensiRes } = await supabase
+      .from("absensi")
+      .select("status")
+      .eq("siswa_id", siswaId)
+      .gte("tanggal", `${bulanIni}-01`)
+      .lte("tanggal", `${bulanIni}-31`);
+    for (const a of absensiRes || []) {
+      rekap.total++;
+      if (a.status === "hadir") rekap.hadir++;
+      else if (a.status === "izin") rekap.izin++;
+      else if (a.status === "sakit") rekap.sakit++;
+      else if (a.status === "alfa") rekap.alfa++;
+    }
+  }
 
   res.json({
     nama_siswa: req.user!.full_name,
-    kelas: "-",
+    kelas: kelasNama,
     jadwal_hari_ini: jadwalRes || [],
     nilai_terbaru: nilaiRes || [],
     rekap_absensi_bulan_ini: rekap,
