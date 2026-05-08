@@ -12,9 +12,10 @@ import {
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClipboardCheck, Loader2, Save, Search, QrCode, Users, CheckCircle2, X, Clock, RefreshCw } from "lucide-react";
+import { ClipboardCheck, Loader2, Save, Search, QrCode, Users, CheckCircle2, X, Clock, RefreshCw, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
+import { Html5Qrcode } from "html5-qrcode";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -517,6 +518,195 @@ function AbsensiManual({ isAdmin }: { isAdmin: boolean }) {
 
 // ─── SISWA ───────────────────────────────────────────────────────────────────
 
+type ScanStatus = "idle" | "scanning" | "loading" | "success" | "already" | "expired" | "error";
+
+function QRScannerPanel() {
+  const [scanStatus, setScanStatus] = useState<ScanStatus>("idle");
+  const [scanMessage, setScanMessage] = useState("");
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isScanningRef = useRef(false);
+
+  const startScan = async () => {
+    setScanStatus("scanning");
+    setScanMessage("");
+    const scanner = new Html5Qrcode("qr-reader");
+    scannerRef.current = scanner;
+    isScanningRef.current = true;
+
+    try {
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        async (decodedText) => {
+          if (!isScanningRef.current) return;
+          isScanningRef.current = false;
+
+          try {
+            await scanner.stop();
+          } catch (_) {}
+
+          setScanStatus("loading");
+
+          try {
+            const url = new URL(decodedText);
+            const token = url.searchParams.get("token");
+            if (!token) {
+              setScanStatus("error");
+              setScanMessage("QR code tidak valid.");
+              return;
+            }
+
+            const authToken = localStorage.getItem("siakad_token");
+            const res = await fetch("/api/absensi/scan", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({ token }),
+            });
+            const data = await res.json();
+
+            if (res.status === 410) {
+              setScanStatus("expired");
+              setScanMessage("Sesi absensi sudah berakhir. Minta guru untuk membuka sesi baru.");
+            } else if (!res.ok) {
+              setScanStatus("error");
+              setScanMessage(data.message || "Terjadi kesalahan.");
+            } else {
+              setScanStatus(data.already ? "already" : "success");
+              setScanMessage(data.message);
+            }
+          } catch {
+            setScanStatus("error");
+            setScanMessage("Gagal terhubung ke server.");
+          }
+        },
+        () => {}
+      );
+    } catch {
+      setScanStatus("error");
+      setScanMessage("Tidak dapat mengakses kamera. Pastikan izin kamera diberikan.");
+    }
+  };
+
+  const stopScan = async () => {
+    isScanningRef.current = false;
+    try { await scannerRef.current?.stop(); } catch (_) {}
+    setScanStatus("idle");
+  };
+
+  useEffect(() => {
+    return () => {
+      isScanningRef.current = false;
+      try { scannerRef.current?.stop(); } catch (_) {}
+    };
+  }, []);
+
+  return (
+    <Card className="border shadow-none rounded-2xl overflow-hidden">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Camera className="h-5 w-5 text-primary" />
+          Scan QR Absensi
+        </CardTitle>
+        <CardDescription>Arahkan kamera ke QR code yang ditampilkan guru</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* QR reader container — always in DOM so html5-qrcode can mount */}
+        <div
+          id="qr-reader"
+          className={`w-full rounded-xl overflow-hidden bg-muted ${scanStatus === "scanning" ? "block" : "hidden"}`}
+          style={{ minHeight: 280 }}
+        />
+
+        {scanStatus === "idle" && (
+          <div className="flex flex-col items-center gap-4 py-6">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: "hsl(231,59%,26%,0.08)" }}>
+              <QrCode className="h-10 w-10" style={{ color: "hsl(231,59%,26%)" }} />
+            </div>
+            <p className="text-sm text-muted-foreground text-center">Tekan tombol di bawah untuk membuka kamera dan scan QR absensi</p>
+            <Button className="rounded-xl gap-2 w-full max-w-xs" onClick={startScan}>
+              <Camera className="h-4 w-4" />
+              Buka Kamera & Scan
+            </Button>
+          </div>
+        )}
+
+        {scanStatus === "scanning" && (
+          <Button variant="outline" className="rounded-xl gap-2 w-full" onClick={stopScan}>
+            <X className="h-4 w-4" />
+            Tutup Kamera
+          </Button>
+        )}
+
+        {scanStatus === "loading" && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Memproses absensi...</p>
+          </div>
+        )}
+
+        {scanStatus === "success" && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
+              <CheckCircle2 className="h-9 w-9 text-emerald-500" />
+            </div>
+            <p className="text-lg font-bold text-emerald-600">Berhasil Hadir!</p>
+            <p className="text-sm text-muted-foreground text-center">{scanMessage}</p>
+            <Button variant="outline" className="rounded-xl gap-2 w-full max-w-xs" onClick={() => { setScanStatus("idle"); setScanMessage(""); }}>
+              <QrCode className="h-4 w-4" />
+              Scan Lagi
+            </Button>
+          </div>
+        )}
+
+        {scanStatus === "already" && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
+              <CheckCircle2 className="h-9 w-9 text-blue-500" />
+            </div>
+            <p className="text-lg font-bold text-blue-600">Sudah Tercatat</p>
+            <p className="text-sm text-muted-foreground text-center">{scanMessage}</p>
+            <Button variant="outline" className="rounded-xl gap-2 w-full max-w-xs" onClick={() => { setScanStatus("idle"); setScanMessage(""); }}>
+              <QrCode className="h-4 w-4" />
+              Scan Lagi
+            </Button>
+          </div>
+        )}
+
+        {scanStatus === "expired" && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center">
+              <Clock className="h-9 w-9 text-orange-500" />
+            </div>
+            <p className="text-lg font-bold text-orange-600">Sesi Berakhir</p>
+            <p className="text-sm text-muted-foreground text-center">{scanMessage}</p>
+            <Button variant="outline" className="rounded-xl gap-2 w-full max-w-xs" onClick={() => { setScanStatus("idle"); setScanMessage(""); }}>
+              <QrCode className="h-4 w-4" />
+              Scan Lagi
+            </Button>
+          </div>
+        )}
+
+        {scanStatus === "error" && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+              <X className="h-9 w-9 text-red-500" />
+            </div>
+            <p className="text-lg font-bold text-red-600">Gagal</p>
+            <p className="text-sm text-muted-foreground text-center">{scanMessage}</p>
+            <Button variant="outline" className="rounded-xl gap-2 w-full max-w-xs" onClick={() => { setScanStatus("idle"); setScanMessage(""); }}>
+              <RefreshCw className="h-4 w-4" />
+              Coba Lagi
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SiswaAbsensi() {
   const [bulan, setBulan] = useState<string>(format(new Date(), "yyyy-MM"));
 
@@ -535,12 +725,14 @@ function SiswaAbsensi() {
         <div className="bg-primary/10 p-2 rounded-lg">
           <ClipboardCheck className="h-6 w-6 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Rekap Absensi Saya</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Absensi Saya</h1>
       </div>
+
+      <QRScannerPanel />
 
       <Card className="border shadow-none rounded-2xl">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Pilih Bulan</CardTitle>
+          <CardTitle className="text-base">Rekap Kehadiran</CardTitle>
         </CardHeader>
         <CardContent>
           <Input type="month" value={bulan} onChange={(e) => setBulan(e.target.value)} className="max-w-[200px] rounded-xl" />
@@ -549,11 +741,11 @@ function SiswaAbsensi() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Hadir", key: "hadir", color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Izin", key: "izin", color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Sakit", key: "sakit", color: "text-orange-600", bg: "bg-orange-50" },
-          { label: "Alfa", key: "alfa", color: "text-red-600", bg: "bg-red-50" },
-        ].map(({ label, key, color, bg }) => (
+          { label: "Hadir", key: "hadir", color: "text-emerald-600" },
+          { label: "Izin", key: "izin", color: "text-blue-600" },
+          { label: "Sakit", key: "sakit", color: "text-orange-600" },
+          { label: "Alfa", key: "alfa", color: "text-red-600" },
+        ].map(({ label, key, color }) => (
           <Card key={key} className="border shadow-none rounded-2xl">
             <CardContent className="pt-5 pb-5">
               <p className="text-xs text-muted-foreground font-medium mb-1">{label}</p>
