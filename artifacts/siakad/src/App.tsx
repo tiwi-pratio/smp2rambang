@@ -14,6 +14,7 @@ import KelasPage from "@/pages/kelas";
 import MataPelajaranPage from "@/pages/mata-pelajaran";
 import JadwalPage from "@/pages/jadwal";
 import AbsensiPage from "@/pages/absensi";
+import AbsensiScanPage from "@/pages/absensi-scan";
 import NilaiPage from "@/pages/nilai";
 import RaportPage from "@/pages/raport";
 import AkunPage from "@/pages/akun";
@@ -74,6 +75,8 @@ function Router() {
       <Route path="/absensi">
         {() => <ProtectedRoute component={AbsensiPage} />}
       </Route>
+
+      <Route path="/absensi/scan" component={AbsensiScanPage} />
 
       <Route path="/nilai">
         {() => <ProtectedRoute component={NilaiPage} />}

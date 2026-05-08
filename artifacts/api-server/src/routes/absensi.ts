@@ -1,6 +1,28 @@
 import { Router } from "express";
+import { randomUUID } from "crypto";
 import { supabase } from "../lib/supabase";
 import { requireAuth, AuthenticatedRequest } from "../middlewares/auth";
+
+// ── In-memory sesi absensi QR ──────────────────────────────────────────────
+interface SesiAbsensi {
+  token: string;
+  kelas_id: number;
+  mata_pelajaran_id: number;
+  guru_id: number | null;
+  tanggal: string;
+  expires_at: number;
+  siswa_hadir: Set<number>;
+}
+
+const sesiMap = new Map<string, SesiAbsensi>();
+
+// Auto-cleanup sesi expired setiap 1 menit
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, sesi] of sesiMap.entries()) {
+    if (sesi.expires_at < now) sesiMap.delete(token);
+  }
+}, 60_000);
 
 const router = Router();
 
@@ -27,6 +49,148 @@ async function enrichAbsensi(absensiList: any[]) {
     mata_pelajaran: mapelMap[a.mata_pelajaran_id] || null,
   }));
 }
+
+// ── SESI QR ENDPOINTS ─────────────────────────────────────────────────────
+
+// POST /absensi/sesi — guru buka sesi baru
+router.post("/absensi/sesi", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const { kelas_id, mata_pelajaran_id, durasi_menit = 30 } = req.body;
+  if (!kelas_id || !mata_pelajaran_id) {
+    res.status(400).json({ error: "Bad Request", message: "kelas_id dan mata_pelajaran_id wajib diisi" });
+    return;
+  }
+
+  const token = randomUUID();
+  const tanggal = new Date().toISOString().split("T")[0];
+  const expires_at = Date.now() + durasi_menit * 60 * 1000;
+
+  sesiMap.set(token, {
+    token,
+    kelas_id: Number(kelas_id),
+    mata_pelajaran_id: Number(mata_pelajaran_id),
+    guru_id: req.user!.profile_id || null,
+    tanggal,
+    expires_at,
+    siswa_hadir: new Set(),
+  });
+
+  res.status(201).json({ token, tanggal, expires_at, kelas_id, mata_pelajaran_id });
+});
+
+// GET /absensi/sesi/:token — status sesi (guru polling)
+router.get("/absensi/sesi/:token", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const sesi = sesiMap.get(req.params.token);
+  if (!sesi) {
+    res.status(404).json({ error: "Not Found", message: "Sesi tidak ditemukan atau sudah berakhir" });
+    return;
+  }
+
+  const siswaHadirIds = [...sesi.siswa_hadir];
+
+  // Ambil data siswa yang hadir
+  let siswaHadir: any[] = [];
+  if (siswaHadirIds.length > 0) {
+    const { data } = await supabase.from("siswa").select("id, nama, nis").in("id", siswaHadirIds);
+    siswaHadir = data || [];
+  }
+
+  // Total siswa di kelas
+  const { count } = await supabase.from("siswa").select("id", { count: "exact" }).eq("kelas_id", sesi.kelas_id);
+
+  res.json({
+    token: sesi.token,
+    kelas_id: sesi.kelas_id,
+    mata_pelajaran_id: sesi.mata_pelajaran_id,
+    tanggal: sesi.tanggal,
+    expires_at: sesi.expires_at,
+    is_expired: Date.now() > sesi.expires_at,
+    total_siswa: count || 0,
+    jumlah_hadir: siswaHadirIds.length,
+    siswa_hadir: siswaHadir,
+  });
+});
+
+// DELETE /absensi/sesi/:token — guru tutup sesi, simpan alfa untuk yg belum hadir
+router.delete("/absensi/sesi/:token", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const sesi = sesiMap.get(req.params.token);
+  if (!sesi) {
+    res.status(404).json({ error: "Not Found", message: "Sesi tidak ditemukan atau sudah berakhir" });
+    return;
+  }
+
+  // Ambil semua siswa di kelas
+  const { data: semuaSiswa } = await supabase.from("siswa").select("id").eq("kelas_id", sesi.kelas_id);
+  const semuaIds = (semuaSiswa || []).map((s: any) => s.id);
+
+  // Siswa yang belum hadir → alfa
+  const hadirIds = [...sesi.siswa_hadir];
+  const alfaIds = semuaIds.filter((id: number) => !hadirIds.includes(id));
+
+  const records: any[] = [
+    ...hadirIds.map((id: number) => ({ siswa_id: id, mata_pelajaran_id: sesi.mata_pelajaran_id, tanggal: sesi.tanggal, status: "hadir", keterangan: "Via QR" })),
+    ...alfaIds.map((id: number) => ({ siswa_id: id, mata_pelajaran_id: sesi.mata_pelajaran_id, tanggal: sesi.tanggal, status: "alfa", keterangan: "" })),
+  ];
+
+  if (records.length > 0) {
+    await supabase.from("absensi").upsert(records, { onConflict: "siswa_id,mata_pelajaran_id,tanggal" });
+  }
+
+  sesiMap.delete(sesi.token);
+
+  res.json({ success: true, message: "Sesi ditutup", jumlah_hadir: hadirIds.length, jumlah_alfa: alfaIds.length });
+});
+
+// POST /absensi/scan — siswa scan QR
+router.post("/absensi/scan", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const { token } = req.body;
+  if (!token) {
+    res.status(400).json({ error: "Bad Request", message: "Token wajib diisi" });
+    return;
+  }
+
+  const sesi = sesiMap.get(token);
+  if (!sesi) {
+    res.status(404).json({ error: "Not Found", message: "Sesi tidak ditemukan atau sudah berakhir" });
+    return;
+  }
+
+  if (Date.now() > sesi.expires_at) {
+    sesiMap.delete(token);
+    res.status(410).json({ error: "Gone", message: "Sesi absensi sudah berakhir" });
+    return;
+  }
+
+  // Resolve siswa_id dari user
+  let siswaId: number | null = null;
+
+  if (req.user!.siswa_id) {
+    siswaId = Number(req.user!.siswa_id);
+  } else {
+    const { data: rows } = await supabase.from("siswa").select("id").eq("nama", req.user!.full_name).limit(2);
+    if (rows && rows.length === 1) siswaId = rows[0].id;
+  }
+
+  if (!siswaId) {
+    res.status(403).json({ error: "Forbidden", message: "Data siswa tidak ditemukan untuk akun ini" });
+    return;
+  }
+
+  if (sesi.siswa_hadir.has(siswaId)) {
+    res.json({ success: true, already: true, message: "Kamu sudah tercatat hadir sebelumnya" });
+    return;
+  }
+
+  // Catat hadir di sesi (in-memory) dan langsung ke DB
+  sesi.siswa_hadir.add(siswaId);
+  await supabase.from("absensi").upsert(
+    [{ siswa_id: siswaId, mata_pelajaran_id: sesi.mata_pelajaran_id, tanggal: sesi.tanggal, status: "hadir", keterangan: "Via QR" }],
+    { onConflict: "siswa_id,mata_pelajaran_id,tanggal" }
+  );
+
+  res.json({ success: true, already: false, message: "Berhasil tercatat hadir!" });
+});
+
+// ── END SESI QR ───────────────────────────────────────────────────────────
 
 router.get("/absensi/rekap", requireAuth, async (req: AuthenticatedRequest, res) => {
   const { siswa_id, bulan, kelas_id } = req.query as Record<string, string>;
