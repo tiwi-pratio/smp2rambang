@@ -45,40 +45,66 @@ router.get("/dashboard/admin-stats", requireAuth, async (req: AuthenticatedReque
 router.get("/dashboard/guru-stats", requireAuth, async (req: AuthenticatedRequest, res) => {
   const hariIni = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][new Date().getDay()];
 
-  const [{ data: jadwalRaw }, { data: mapelRes }] = await Promise.all([
-    supabase.from("jadwal").select("id, kelas_id, mata_pelajaran_id, guru_id, hari, jam_mulai, jam_selesai").eq("hari", hariIni).limit(10),
-    supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").limit(5),
-  ]);
+  // Resolve guru_id dari token atau fallback nama
+  let guruId: number | string | null = req.user!.guru_id || null;
 
-  // Enrich jadwal with separate queries
-  const jadwalList = jadwalRaw || [];
-  let jadwalRes = jadwalList;
-  if (jadwalList.length > 0) {
-    const kelasIds = [...new Set(jadwalList.map((j: any) => j.kelas_id).filter(Boolean))];
-    const mapelIds = [...new Set(jadwalList.map((j: any) => j.mata_pelajaran_id).filter(Boolean))];
-    const guruIds = [...new Set(jadwalList.map((j: any) => j.guru_id).filter(Boolean))];
-
-    const [{ data: kelasData }, { data: mapelData }, { data: guruData }] = await Promise.all([
-      kelasIds.length > 0 ? supabase.from("kelas").select("id, nama_kelas, tingkat, tahun_ajaran").in("id", kelasIds) : Promise.resolve({ data: [] }),
-      mapelIds.length > 0 ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", mapelIds) : Promise.resolve({ data: [] }),
-      guruIds.length > 0 ? supabase.from("guru").select("id, nama, nip").in("id", guruIds) : Promise.resolve({ data: [] }),
-    ]);
-
-    const km: Record<number, any> = {};
-    const mm: Record<number, any> = {};
-    const gm: Record<number, any> = {};
-    for (const k of kelasData || []) km[(k as any).id] = k;
-    for (const m of mapelData || []) mm[(m as any).id] = m;
-    for (const g of guruData || []) gm[(g as any).id] = g;
-
-    jadwalRes = jadwalList.map((j: any) => ({ ...j, kelas: km[j.kelas_id] || null, mata_pelajaran: mm[j.mata_pelajaran_id] || null, guru: gm[j.guru_id] || null }));
+  if (!guruId) {
+    const { data: guruRows } = await supabase
+      .from("guru")
+      .select("id")
+      .eq("nama", req.user!.full_name)
+      .limit(2);
+    if (guruRows && guruRows.length === 1) guruId = guruRows[0].id;
   }
 
+  // Ambil SEMUA jadwal guru ini (untuk hitung kelas & mapel)
+  const { data: allJadwal } = guruId
+    ? await supabase.from("jadwal").select("id, kelas_id, mata_pelajaran_id, guru_id, hari, jam_mulai, jam_selesai").eq("guru_id", guruId)
+    : { data: [] };
+
+  const allJadwalList = allJadwal || [];
+
+  // Jadwal hari ini saja (difilter dari semua jadwal guru)
+  const jadwalHariIni = allJadwalList.filter((j: any) => j.hari === hariIni);
+
+  // Kelas unik yang diajar guru ini
+  const kelasIds = [...new Set(allJadwalList.map((j: any) => j.kelas_id).filter(Boolean))];
+  // Mapel unik yang diajar guru ini
+  const mapelIds = [...new Set(allJadwalList.map((j: any) => j.mata_pelajaran_id).filter(Boolean))];
+
+  // Fetch data pendukung secara paralel
+  const [{ data: kelasData }, { data: mapelData }, siswaCountRes] = await Promise.all([
+    kelasIds.length > 0
+      ? supabase.from("kelas").select("id, nama_kelas, tingkat, tahun_ajaran").in("id", kelasIds)
+      : Promise.resolve({ data: [] }),
+    mapelIds.length > 0
+      ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", mapelIds)
+      : Promise.resolve({ data: [] }),
+    kelasIds.length > 0
+      ? supabase.from("siswa").select("id", { count: "exact" }).in("kelas_id", kelasIds)
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  const km: Record<number, any> = {};
+  const mm: Record<number, any> = {};
+  for (const k of kelasData || []) km[(k as any).id] = k;
+  for (const m of mapelData || []) mm[(m as any).id] = m;
+
+  // Enrich jadwal hari ini
+  const jadwalRes = jadwalHariIni.map((j: any) => ({
+    ...j,
+    kelas: km[j.kelas_id] || null,
+    mata_pelajaran: mm[j.mata_pelajaran_id] || null,
+  }));
+
+  // Mapel unik yang diampu (tanpa duplikat)
+  const mapelList = (mapelData || []);
+
   res.json({
-    total_kelas_diajar: 3,
-    total_siswa_diajar: 15,
+    total_kelas_diajar: kelasIds.length,
+    total_siswa_diajar: (siswaCountRes as any).count || 0,
     jadwal_hari_ini: jadwalRes,
-    mata_pelajaran: mapelRes || [],
+    mata_pelajaran: mapelList,
   });
 });
 
