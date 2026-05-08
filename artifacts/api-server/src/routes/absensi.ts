@@ -54,6 +54,25 @@ router.post("/absensi/sesi", requireAuth, async (req: AuthenticatedRequest, res)
   const tanggal = new Date().toISOString().split("T")[0];
   const expires_at = Date.now() + Number(durasi_menit) * 60 * 1000;
 
+  // Pre-populate dengan siswa yang sudah hadir hari ini untuk mapel+kelas yang sama
+  const { data: sudahHadir } = await supabase
+    .from("absensi")
+    .select("siswa_id")
+    .eq("mata_pelajaran_id", Number(mata_pelajaran_id))
+    .eq("tanggal", tanggal)
+    .eq("status", "hadir");
+
+  // Filter hanya siswa dari kelas ini
+  const { data: siswaKelas } = await supabase
+    .from("siswa")
+    .select("id")
+    .eq("kelas_id", Number(kelas_id));
+
+  const siswaKelasIds = new Set((siswaKelas || []).map((s: any) => s.id));
+  const hadirIds = (sudahHadir || [])
+    .map((a: any) => a.siswa_id)
+    .filter((id: number) => siswaKelasIds.has(id));
+
   const { error } = await supabase.from("sesi_absensi").insert({
     token,
     kelas_id: Number(kelas_id),
@@ -61,7 +80,7 @@ router.post("/absensi/sesi", requireAuth, async (req: AuthenticatedRequest, res)
     guru_id: req.user!.profile_id || null,
     tanggal,
     expires_at,
-    siswa_hadir_ids: "",
+    siswa_hadir_ids: serializeSiswaHadirIds(hadirIds),
   });
 
   if (error) {
