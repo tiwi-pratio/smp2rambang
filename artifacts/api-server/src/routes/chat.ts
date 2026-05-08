@@ -3,27 +3,55 @@ import { requireAuth, AuthenticatedRequest } from "../middlewares/auth";
 
 const router = Router();
 
-const SYSTEM_PROMPT = `Kamu adalah asisten virtual SIAKAD (Sistem Informasi Akademik) SMP Negeri 2 Rambang. Tugasmu membantu pengguna memahami dan menggunakan fitur-fitur yang ada di sistem ini.
+const getRoleLabel = (role: string) => {
+  switch (role) {
+    case "admin": return "Administrator";
+    case "guru": return "Guru";
+    case "siswa": return "Siswa";
+    default: return role;
+  }
+};
+
+const getRoleAccess = (role: string) => {
+  switch (role) {
+    case "admin":
+      return "Kamu memiliki akses penuh ke semua fitur: Dashboard, Data Siswa, Data Guru, Kelas, Mata Pelajaran, Jadwal, Absensi, Rekap Absensi, Nilai, Raport, dan Manajemen Akun.";
+    case "guru":
+      return "Kamu memiliki akses ke: Dashboard, Jadwal, Absensi (input & rekap), Nilai, dan Raport.";
+    case "siswa":
+      return "Kamu memiliki akses ke: Dashboard, Jadwal pelajaranmu, Absensi pribadimu, Nilai pribadimu, dan Raport pribadimu.";
+    default:
+      return "";
+  }
+};
+
+const buildSystemPrompt = (user: AuthenticatedRequest["user"]) => {
+  const roleLabel = getRoleLabel(user!.role);
+  const roleAccess = getRoleAccess(user!.role);
+
+  return `Kamu adalah asisten virtual SIAKAD (Sistem Informasi Akademik) SMP Negeri 2 Rambang.
+
+Pengguna yang sedang login:
+- Nama: ${user!.full_name}
+- Role: ${roleLabel}
+- Email: ${user!.email}
+${roleAccess}
 
 Fitur-fitur yang tersedia di SIAKAD:
 - Dashboard: Statistik dan ringkasan data akademik sesuai role
-- Data Siswa: Melihat dan mengelola data siswa (admin)
-- Data Guru: Melihat dan mengelola data guru (admin)
-- Kelas: Manajemen kelas dan wali kelas (admin)
-- Mata Pelajaran: Manajemen mata pelajaran dan assignment guru (admin)
+- Data Siswa: Melihat dan mengelola data siswa (khusus admin)
+- Data Guru: Melihat dan mengelola data guru (khusus admin)
+- Kelas: Manajemen kelas dan wali kelas (khusus admin)
+- Mata Pelajaran: Manajemen mata pelajaran dan assignment guru (khusus admin)
 - Jadwal: Melihat jadwal pelajaran per kelas
 - Absensi: Input absensi harian dan rekap bulanan
 - Nilai: Input nilai harian/UTS/UAS, nilai akhir dihitung otomatis (40% harian, 30% UTS, 30% UAS)
 - Raport: Cetak raport digital per siswa per semester
-- Manajemen Akun: Buat akun login untuk siswa/guru (admin)
+- Manajemen Akun: Buat akun login untuk siswa/guru (khusus admin)
 - Profil: Lihat dan edit data profil pribadi
 
-Role pengguna:
-- Admin: Akses penuh ke semua fitur
-- Guru: Akses jadwal, absensi, nilai, raport
-- Siswa: Akses jadwal, absensi pribadi, nilai pribadi, raport pribadi
-
-Jawab dengan ramah, singkat, dan dalam Bahasa Indonesia. Jika pertanyaan tidak berkaitan dengan SIAKAD atau sistem akademik sekolah, tolak dengan sopan dan arahkan kembali ke topik SIAKAD.`;
+Panggil pengguna dengan nama depannya saja. Jawab dengan ramah, singkat, dan dalam Bahasa Indonesia. Jika pertanyaan tidak berkaitan dengan SIAKAD atau sistem akademik sekolah, tolak dengan sopan dan arahkan kembali ke topik SIAKAD.`;
+};
 
 router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res) => {
   const { messages } = req.body;
@@ -39,6 +67,8 @@ router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res) => {
     return;
   }
 
+  const systemPrompt = buildSystemPrompt(req.user);
+
   try {
     const response = await fetch("https://pio.codes/v1/chat/completions", {
       method: "POST",
@@ -49,7 +79,7 @@ router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res) => {
       body: JSON.stringify({
         model: "qwen-plus",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...messages,
         ],
       }),
