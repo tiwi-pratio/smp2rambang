@@ -36,4 +36,6 @@ RUN NODE_ENV=production pnpm --filter @workspace/api-server run build
 
 EXPOSE 3000
 
+ENV NODE_ENV=production
+
 CMD ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
