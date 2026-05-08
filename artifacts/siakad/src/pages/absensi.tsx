@@ -12,7 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClipboardCheck, Loader2, Save, Search, QrCode, Users, CheckCircle2, X, Clock, RefreshCw, Camera } from "lucide-react";
+import { ClipboardCheck, Loader2, Save, Search, QrCode, Users, CheckCircle2, X, Clock, RefreshCw, Camera, ClipboardList, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { Html5Qrcode } from "html5-qrcode";
@@ -24,7 +24,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AbsensiPage() {
   const { data: user } = useGetMe();
@@ -47,22 +46,7 @@ function GuruAdminAbsensi({ isAdmin }: { isAdmin: boolean }) {
         <h1 className="text-2xl font-bold tracking-tight">Manajemen Absensi</h1>
       </div>
 
-      <Tabs defaultValue={isAdmin ? "manual" : "qr"}>
-        <TabsList className="rounded-xl">
-          {!isAdmin && <TabsTrigger value="qr" className="gap-2"><QrCode className="h-4 w-4" />Absensi QR</TabsTrigger>}
-          <TabsTrigger value="manual" className="gap-2"><ClipboardCheck className="h-4 w-4" />{isAdmin ? "Data Absensi" : "Input Manual"}</TabsTrigger>
-        </TabsList>
-
-        {!isAdmin && (
-          <TabsContent value="qr" className="mt-4">
-            <AbsensiQR />
-          </TabsContent>
-        )}
-
-        <TabsContent value="manual" className="mt-4">
-          <AbsensiManual isAdmin={isAdmin} />
-        </TabsContent>
-      </Tabs>
+      {isAdmin ? <AbsensiManual isAdmin={true} /> : <AbsensiQR />}
     </div>
   );
 }
@@ -95,19 +79,16 @@ interface JadwalAktif {
 
 function AbsensiQR() {
   const { toast } = useToast();
-  const { data: kelasData } = useListKelas();
-  const { data: mapelData } = useListMataPelajaran();
 
-  const [selectedKelas, setSelectedKelas] = useState("");
-  const [selectedMapel, setSelectedMapel] = useState("");
-  const [durasi, setDurasi] = useState("30");
   const [sesi, setSesi] = useState<SesiData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingJadwalId, setLoadingJadwalId] = useState<number | null>(null);
   const [closing, setClosing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [jadwalAktif, setJadwalAktif] = useState<JadwalAktif[]>([]);
   const [jamSekarang, setJamSekarang] = useState("");
   const [loadingJadwal, setLoadingJadwal] = useState(true);
+  const [manualJadwal, setManualJadwal] = useState<JadwalAktif | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -115,7 +96,6 @@ function AbsensiQR() {
   const scanUrl = sesi ? `${window.location.origin}/absensi/scan?token=${sesi.token}` : "";
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` };
 
-  // Fetch jadwal aktif saat ini
   useEffect(() => {
     const fetchJadwalAktif = async () => {
       setLoadingJadwal(true);
@@ -148,19 +128,14 @@ function AbsensiQR() {
 
   useEffect(() => () => stopPolling(), []);
 
-  const handleBukaSesi = async (kelasId?: string, mapelId?: string) => {
-    const k = kelasId ?? selectedKelas;
-    const m = mapelId ?? selectedMapel;
-    if (!k || !m) {
-      toast({ variant: "destructive", title: "Pilih kelas dan mata pelajaran terlebih dahulu" });
-      return;
-    }
+  const handleBukaSesi = async (jadwal: JadwalAktif) => {
     setLoading(true);
+    setLoadingJadwalId(jadwal.id);
     try {
       const res = await fetch("/api/absensi/sesi", {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ kelas_id: Number(k), mata_pelajaran_id: Number(m), durasi_menit: Number(durasi) }),
+        body: JSON.stringify({ kelas_id: jadwal.kelas_id, mata_pelajaran_id: jadwal.mata_pelajaran_id, durasi_menit: 30 }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -183,6 +158,7 @@ function AbsensiQR() {
       toast({ variant: "destructive", title: "Gagal membuka sesi" });
     } finally {
       setLoading(false);
+      setLoadingJadwalId(null);
     }
   };
 
@@ -205,205 +181,334 @@ function AbsensiQR() {
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  if (!sesi) {
+  // ── Mode Input Manual inline ──────────────────────────────────────────────
+  if (manualJadwal) {
     return (
       <div className="space-y-4">
-        {/* ── Jadwal Aktif Sekarang ── */}
-        {loadingJadwal ? (
-          <Card className="border shadow-none rounded-2xl">
-            <CardContent className="pt-5 pb-5">
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-10 w-10 rounded-xl" />
-                <div className="space-y-1.5 flex-1">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : jadwalAktif.length > 0 ? (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Sedang Berlangsung · {jamSekarang} WIB</p>
-            {jadwalAktif.map((j) => (
-              <Card key={j.id} className="border-2 shadow-none rounded-2xl overflow-hidden" style={{ borderColor: "hsl(231,59%,26%,0.25)" }}>
-                <CardContent className="pt-4 pb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "hsl(231,59%,26%)" }}>
-                      <QrCode className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate">{j.mata_pelajaran?.nama_mapel ?? "—"}</p>
-                      <p className="text-sm text-muted-foreground">{j.kelas?.nama_kelas ?? "—"} · {j.jam_mulai}–{j.jam_selesai}</p>
-                    </div>
-                    <Button
-                      className="rounded-xl gap-2 shrink-0"
-                      onClick={() => handleBukaSesi(String(j.kelas_id), String(j.mata_pelajaran_id))}
-                      disabled={loading}
-                    >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                      Buka Absensi
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="rounded-xl gap-2" onClick={() => setManualJadwal(null)}>
+            <ArrowLeft className="h-4 w-4" />
+            Kembali
+          </Button>
+          <div>
+            <p className="font-semibold">{manualJadwal.mata_pelajaran?.nama_mapel}</p>
+            <p className="text-xs text-muted-foreground">{manualJadwal.kelas?.nama_kelas} · {manualJadwal.jam_mulai}–{manualJadwal.jam_selesai}</p>
           </div>
-        ) : (
-          <Card className="border shadow-none rounded-2xl bg-muted/40">
-            <CardContent className="pt-5 pb-5">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Clock className="h-5 w-5 shrink-0" />
-                <p className="text-sm">Tidak ada jadwal mengajar yang aktif sekarang ({jamSekarang} WIB).</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        </div>
+        <AbsensiManualInline
+          kelasId={String(manualJadwal.kelas_id)}
+          mapelId={String(manualJadwal.mata_pelajaran_id)}
+        />
+      </div>
+    );
+  }
 
-        {/* ── Pilih Manual ── */}
-        <Card className="border shadow-none rounded-2xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground font-medium">Atau pilih manual</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kelas</label>
-                <Select value={selectedKelas} onValueChange={setSelectedKelas}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih Kelas" /></SelectTrigger>
-                  <SelectContent>{kelasData?.map(k => <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Mata Pelajaran</label>
-                <Select value={selectedMapel} onValueChange={setSelectedMapel}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih Mapel" /></SelectTrigger>
-                  <SelectContent>{mapelData?.map(m => <SelectItem key={m.id} value={m.id}>{m.nama_mapel}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Durasi (menit)</label>
-                <Select value={durasi} onValueChange={setDurasi}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10 menit</SelectItem>
-                    <SelectItem value="15">15 menit</SelectItem>
-                    <SelectItem value="30">30 menit</SelectItem>
-                    <SelectItem value="60">60 menit</SelectItem>
-                  </SelectContent>
-                </Select>
+  // ── Mode Sesi QR aktif ────────────────────────────────────────────────────
+  if (sesi) {
+    const isExpired = sesi.is_expired || timeLeft === 0;
+    const pct = sesi.total_siswa > 0 ? Math.round((sesi.jumlah_hadir / sesi.total_siswa) * 100) : 0;
+
+    return (
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="lg:col-span-2 border shadow-none rounded-2xl">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">QR Absensi</CardTitle>
+              <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${isExpired ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${isExpired ? "bg-red-500" : "bg-emerald-500 animate-pulse"}`} />
+                {isExpired ? "Berakhir" : "Aktif"}
               </div>
             </div>
-            <Button onClick={() => handleBukaSesi()} disabled={loading || !selectedKelas || !selectedMapel} className="rounded-xl gap-2">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-              Buka Sesi Absensi
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <div className={`p-3 rounded-2xl border-2 ${isExpired ? "border-red-200 opacity-40" : "border-border"}`}>
+              <QRCodeSVG value={scanUrl} size={180} level="M" />
+            </div>
+
+            {!isExpired && (
+              <div className="flex items-center gap-2 text-sm font-mono font-bold" style={{ color: timeLeft < 60 ? "hsl(0,84%,60%)" : "hsl(231,59%,26%)" }}>
+                <Clock className="h-4 w-4" />
+                {formatTime(timeLeft)}
+              </div>
+            )}
+
+            {isExpired && <p className="text-sm text-red-500 font-medium">Sesi telah berakhir</p>}
+
+            <Button
+              variant="destructive"
+              className="w-full rounded-xl gap-2"
+              onClick={handleTutupSesi}
+              disabled={closing}
+            >
+              {closing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+              Tutup Sesi & Simpan
             </Button>
+
+            <p className="text-xs text-muted-foreground text-center">
+              Siswa yang belum scan akan dicatat <strong>alfa</strong> saat sesi ditutup
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3 border shadow-none rounded-2xl">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Monitor Kehadiran</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Update otomatis setiap 5 detik</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold" style={{ color: "hsl(231,59%,26%)" }}>{sesi.jumlah_hadir}<span className="text-sm font-normal text-muted-foreground">/{sesi.total_siswa}</span></p>
+                <p className="text-xs text-muted-foreground">siswa hadir</p>
+              </div>
+            </div>
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, background: "linear-gradient(90deg, hsl(231,59%,26%), hsl(213,39%,47%))" }}
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {sesi.siswa_hadir.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+                <Users className="h-8 w-8 mb-2 opacity-30" />
+                <p className="text-sm">Menunggu siswa scan QR...</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {sesi.siswa_hadir.map((s, i) => (
+                  <div key={s.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-50">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{s.nama}</p>
+                      <p className="text-xs text-muted-foreground">{s.nis}</p>
+                    </div>
+                    <span className="text-xs text-emerald-600 font-semibold shrink-0">#{i + 1}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const isExpired = sesi.is_expired || timeLeft === 0;
-  const pct = sesi.total_siswa > 0 ? Math.round((sesi.jumlah_hadir / sesi.total_siswa) * 100) : 0;
-
+  // ── Pilih jadwal aktif ────────────────────────────────────────────────────
   return (
-    <div className="grid gap-4 lg:grid-cols-5">
-      {/* QR Panel */}
-      <Card className="lg:col-span-2 border shadow-none rounded-2xl">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">QR Absensi</CardTitle>
-            <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${isExpired ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${isExpired ? "bg-red-500" : "bg-emerald-500 animate-pulse"}`} />
-              {isExpired ? "Berakhir" : "Aktif"}
+    <div className="space-y-2">
+      {loadingJadwal ? (
+        <Card className="border shadow-none rounded-2xl">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-1.5 flex-1">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </div>
             </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {kelasData?.find(k => k.id === String(sesi.kelas_id))?.nama_kelas} · {mapelData?.find(m => m.id === String(sesi.mata_pelajaran_id))?.nama_mapel}
+          </CardContent>
+        </Card>
+      ) : jadwalAktif.length > 0 ? (
+        <>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1">
+            Sedang Berlangsung · {jamSekarang} WIB
           </p>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4">
-          <div className={`p-3 rounded-2xl border-2 ${isExpired ? "border-red-200 opacity-40" : "border-border"}`}>
-            <QRCodeSVG value={scanUrl} size={180} level="M" />
-          </div>
-
-          {!isExpired && (
-            <div className="flex items-center gap-2 text-sm font-mono font-bold" style={{ color: timeLeft < 60 ? "hsl(0,84%,60%)" : "hsl(231,59%,26%)" }}>
-              <Clock className="h-4 w-4" />
-              {formatTime(timeLeft)}
-            </div>
-          )}
-
-          {isExpired && (
-            <p className="text-sm text-red-500 font-medium">Sesi telah berakhir</p>
-          )}
-
-          <Button
-            variant="destructive"
-            className="w-full rounded-xl gap-2"
-            onClick={handleTutupSesi}
-            disabled={closing}
-          >
-            {closing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-            Tutup Sesi & Simpan
-          </Button>
-
-          <p className="text-xs text-muted-foreground text-center">
-            Siswa yang belum scan akan dicatat <strong>alfa</strong> saat sesi ditutup
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Monitor Panel */}
-      <Card className="lg:col-span-3 border shadow-none rounded-2xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Monitor Kehadiran</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Update otomatis setiap 5 detik</p>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold" style={{ color: "hsl(231,59%,26%)" }}>{sesi.jumlah_hadir}<span className="text-sm font-normal text-muted-foreground">/{sesi.total_siswa}</span></p>
-              <p className="text-xs text-muted-foreground">siswa hadir</p>
-            </div>
-          </div>
-          {/* Progress bar */}
-          <div className="h-2 w-full bg-muted rounded-full overflow-hidden mt-2">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${pct}%`, background: "linear-gradient(90deg, hsl(231,59%,26%), hsl(213,39%,47%))" }}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {sesi.siswa_hadir.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
-              <Users className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm">Menunggu siswa scan QR...</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {sesi.siswa_hadir.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-50">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          {jadwalAktif.map((j) => (
+            <Card key={j.id} className="border-2 shadow-none rounded-2xl overflow-hidden" style={{ borderColor: "hsl(231,59%,26%,0.25)" }}>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "hsl(231,59%,26%)" }}>
+                    <QrCode className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{s.nama}</p>
-                    <p className="text-xs text-muted-foreground">{s.nis}</p>
+                    <p className="font-semibold text-foreground truncate">{j.mata_pelajaran?.nama_mapel ?? "—"}</p>
+                    <p className="text-sm text-muted-foreground">{j.kelas?.nama_kelas ?? "—"} · {j.jam_mulai}–{j.jam_selesai}</p>
                   </div>
-                  <span className="text-xs text-emerald-600 font-semibold shrink-0">#{i + 1}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      className="rounded-xl gap-2"
+                      onClick={() => setManualJadwal(j)}
+                      disabled={loading}
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                      Input Manual
+                    </Button>
+                    <Button
+                      className="rounded-xl gap-2"
+                      onClick={() => handleBukaSesi(j)}
+                      disabled={loading}
+                    >
+                      {loading && loadingJadwalId === j.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                      Buka Absensi
+                    </Button>
+                  </div>
                 </div>
-              ))}
+              </CardContent>
+            </Card>
+          ))}
+        </>
+      ) : (
+        <Card className="border shadow-none rounded-2xl bg-muted/40">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <Clock className="h-5 w-5 shrink-0" />
+              <p className="text-sm">Tidak ada jadwal mengajar yang aktif sekarang ({jamSekarang} WIB).</p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
 
-// ─── INPUT MANUAL ────────────────────────────────────────────────────────────
+// ─── INPUT MANUAL INLINE (dari card jadwal aktif) ────────────────────────────
+
+function AbsensiManualInline({ kelasId, mapelId }: { kelasId: string; mapelId: string }) {
+  const tanggal = format(new Date(), "yyyy-MM-dd");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: siswaData, isLoading: isLoadingSiswa } = useListSiswa(
+    { kelas_id: kelasId, limit: 100 },
+    { query: { enabled: true } }
+  );
+
+  const { data: absensiData, isLoading: isLoadingAbsensi } = useListAbsensi(
+    { kelas_id: kelasId, mata_pelajaran_id: mapelId, tanggal },
+    { query: { enabled: true } }
+  );
+
+  const createMutation = useCreateAbsensi();
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, { status: "hadir" | "izin" | "sakit" | "alfa"; keterangan: string }>>({});
+
+  useMemo(() => {
+    if (siswaData?.data?.length) {
+      const map: Record<string, any> = {};
+      siswaData.data.forEach((siswa) => {
+        const existing = absensiData?.find((a) => a.siswa_id === siswa.id);
+        if (existing) {
+          map[siswa.id] = { status: existing.status, keterangan: existing.keterangan || "" };
+        } else {
+          map[siswa.id] = { status: "hadir", keterangan: "" };
+        }
+      });
+      setAttendanceMap(map);
+    }
+  }, [absensiData, siswaData]);
+
+  const handleStatusChange = (siswaId: string, status: any) => {
+    setAttendanceMap((prev) => ({ ...prev, [siswaId]: { status, keterangan: prev[siswaId]?.keterangan || "" } }));
+  };
+
+  const handleKeteranganChange = (siswaId: string, keterangan: string) => {
+    setAttendanceMap((prev) => ({ ...prev, [siswaId]: { status: prev[siswaId]?.status || "hadir", keterangan } }));
+  };
+
+  const handleSave = () => {
+    if (!siswaData?.data) return;
+    const records = siswaData.data.map((siswa) => {
+      const entry = attendanceMap[siswa.id] || { status: "hadir", keterangan: "" };
+      return { siswa_id: siswa.id, mata_pelajaran_id: mapelId, tanggal, status: entry.status as any, keterangan: entry.keterangan };
+    });
+    createMutation.mutate(
+      { data: { records } },
+      {
+        onSuccess: () => {
+          toast({ title: "Data absensi berhasil disimpan" });
+          queryClient.invalidateQueries({ queryKey: getListAbsensiQueryKey() });
+        },
+        onError: (err: any) => {
+          toast({ variant: "destructive", title: "Gagal menyimpan absensi", description: err?.data?.message || "Terjadi kesalahan." });
+        },
+      }
+    );
+  };
+
+  const isLoading = isLoadingSiswa || isLoadingAbsensi;
+
+  return (
+    <Card className="border shadow-none rounded-2xl">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div>
+          <CardTitle className="text-base">Daftar Siswa</CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(), "dd MMMM yyyy")}</p>
+        </div>
+        {siswaData?.data?.length ? (
+          <Button onClick={handleSave} disabled={createMutation.isPending} className="rounded-xl gap-2">
+            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Simpan
+          </Button>
+        ) : null}
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-xl border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">No</TableHead>
+                <TableHead>NIS</TableHead>
+                <TableHead>Nama Siswa</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Keterangan</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {[1,2,3,4,5].map(j => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
+                  </TableRow>
+                ))
+              ) : !siswaData?.data?.length ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Tidak ada siswa di kelas ini</TableCell>
+                </TableRow>
+              ) : (
+                siswaData.data.map((siswa, idx) => {
+                  const entry = attendanceMap[siswa.id] || { status: "hadir", keterangan: "" };
+                  return (
+                    <TableRow key={siswa.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium text-muted-foreground">{siswa.nis}</TableCell>
+                      <TableCell className="font-medium">{siswa.nama}</TableCell>
+                      <TableCell>
+                        <Select value={entry.status} onValueChange={(val) => handleStatusChange(siswa.id, val)}>
+                          <SelectTrigger className="w-[120px] rounded-lg"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hadir">Hadir</SelectItem>
+                            <SelectItem value="izin">Izin</SelectItem>
+                            <SelectItem value="sakit">Sakit</SelectItem>
+                            <SelectItem value="alfa">Alfa</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          placeholder="Keterangan opsional..."
+                          value={entry.keterangan}
+                          onChange={(e) => handleKeteranganChange(siswa.id, e.target.value)}
+                          disabled={entry.status === "hadir"}
+                          className="rounded-lg"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── INPUT MANUAL (ADMIN view) ────────────────────────────────────────────────
 
 function AbsensiManual({ isAdmin }: { isAdmin: boolean }) {
   const [selectedKelas, setSelectedKelas] = useState<string>("");
@@ -590,7 +695,7 @@ function AbsensiManual({ isAdmin }: { isAdmin: boolean }) {
           <CardContent className="py-12 flex flex-col items-center justify-center text-center">
             <Search className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium">Pilih Kelas dan Mata Pelajaran</h3>
-            <p className="text-muted-foreground text-sm max-w-sm mt-1">Silakan pilih kelas, mata pelajaran, dan tanggal untuk melihat atau mengisi daftar hadir siswa.</p>
+            <p className="text-muted-foreground text-sm max-w-sm mt-1">Silakan pilih kelas, mata pelajaran, dan tanggal untuk melihat data absensi.</p>
           </CardContent>
         </Card>
       )}
@@ -695,7 +800,6 @@ function QRScannerPanel() {
         <CardDescription>Arahkan kamera ke QR code yang ditampilkan guru</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* QR reader container — always in DOM so html5-qrcode can mount */}
         <div
           id="qr-reader"
           className={`w-full rounded-xl overflow-hidden bg-muted ${scanStatus === "scanning" ? "block" : "hidden"}`}
