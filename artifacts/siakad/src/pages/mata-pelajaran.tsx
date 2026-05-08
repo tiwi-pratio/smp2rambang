@@ -82,7 +82,7 @@ export default function MataPelajaranPage() {
     const payload = {
       ...values,
       kode_mapel: values.kode_mapel || null,
-      guru_id: values.guru_id || null,
+      guru_id: values.guru_id && values.guru_id !== "__none__" ? values.guru_id : null,
     };
 
     if (editingMapel) {
@@ -93,6 +93,7 @@ export default function MataPelajaranPage() {
             toast({ title: "Mata Pelajaran berhasil diperbarui" });
             setIsCreateOpen(false);
             setEditingMapel(null);
+            form.reset();
             queryClient.invalidateQueries({ queryKey: getListMataPelajaranQueryKey() });
           },
           onError: (err: any) => {
@@ -107,6 +108,7 @@ export default function MataPelajaranPage() {
           onSuccess: () => {
             toast({ title: "Mata Pelajaran berhasil ditambahkan" });
             setIsCreateOpen(false);
+            form.reset();
             queryClient.invalidateQueries({ queryKey: getListMataPelajaranQueryKey() });
           },
           onError: (err: any) => {
@@ -122,7 +124,8 @@ export default function MataPelajaranPage() {
     form.reset({
       nama_mapel: mapel.nama_mapel,
       kode_mapel: mapel.kode_mapel || "",
-      guru_id: mapel.guru_id || "",
+      // Ensure guru_id is always a string for the Select component
+      guru_id: mapel.guru_id != null ? String(mapel.guru_id) : "",
     });
     setIsCreateOpen(true);
   };
@@ -199,18 +202,24 @@ export default function MataPelajaranPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Guru Pengampu (Opsional)</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                      <Select
+                        value={field.value || ""}
+                        onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Pilih Guru Pengampu" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {!guruData?.length
-                            ? <SelectItem value="__none__" disabled>Belum ada guru pengampu</SelectItem>
-                            : guruData.map(g => (
-                              <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>
-                            ))}
+                          <SelectItem value="__none__">
+                            <span className="text-muted-foreground">— Tidak ada —</span>
+                          </SelectItem>
+                          {(guruData || []).map((g) => (
+                            <SelectItem key={g.id} value={String(g.id)}>
+                              {g.nama}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -261,7 +270,12 @@ export default function MataPelajaranPage() {
                   <TableRow key={mapel.id}>
                     <TableCell className="font-medium text-muted-foreground">{mapel.kode_mapel || '-'}</TableCell>
                     <TableCell className="font-medium">{mapel.nama_mapel}</TableCell>
-                    <TableCell>{mapel.guru?.nama || <span className="text-muted-foreground italic">Belum ditentukan</span>}</TableCell>
+                    <TableCell>
+                      {(mapel as any).guru?.nama
+                        ? <span className="font-medium">{(mapel as any).guru.nama}</span>
+                        : <span className="text-muted-foreground italic">Belum ditentukan</span>
+                      }
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(mapel)}>

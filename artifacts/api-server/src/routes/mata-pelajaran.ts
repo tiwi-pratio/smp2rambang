@@ -9,7 +9,7 @@ async function enrichMapel(mapelList: any[]) {
   const guruIds = [...new Set(mapelList.map((m) => m.guru_id).filter(Boolean))];
   let guruMap: Record<number, any> = {};
   if (guruIds.length > 0) {
-    const { data: guruData } = await supabase.from("guru").select("id, nama, nip, no_hp, email").in("id", guruIds);
+    const { data: guruData } = await supabase.from("guru").select("id, nama, nip").in("id", guruIds);
     for (const g of guruData || []) guruMap[g.id] = g;
   }
   return mapelList.map((m) => ({ ...m, guru: guruMap[m.guru_id] || null }));
