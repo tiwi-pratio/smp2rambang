@@ -11,6 +11,7 @@
 //   export const postsTable = pgTable("posts", {
 //     id: serial("id").primaryKey(),
 //     title: text("title").notNull(),
+//     created_at: timestamp("created_at").defaultNow(),
 //   });
 //
 //   export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true });
