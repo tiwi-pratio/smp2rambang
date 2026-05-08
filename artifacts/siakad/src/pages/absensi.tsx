@@ -81,6 +81,18 @@ interface SesiData {
   is_expired: boolean;
 }
 
+interface JadwalAktif {
+  id: number;
+  kelas_id: number;
+  mata_pelajaran_id: number;
+  guru_id: number;
+  hari: string;
+  jam_mulai: string;
+  jam_selesai: string;
+  kelas: { id: number; nama_kelas: string } | null;
+  mata_pelajaran: { id: number; nama_mapel: string } | null;
+}
+
 function AbsensiQR() {
   const { toast } = useToast();
   const { data: kelasData } = useListKelas();
@@ -93,13 +105,32 @@ function AbsensiQR() {
   const [loading, setLoading] = useState(false);
   const [closing, setClosing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [jadwalAktif, setJadwalAktif] = useState<JadwalAktif[]>([]);
+  const [jamSekarang, setJamSekarang] = useState("");
+  const [loadingJadwal, setLoadingJadwal] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const authToken = localStorage.getItem("siakad_token") ?? "";
   const scanUrl = sesi ? `${window.location.origin}/absensi/scan?token=${sesi.token}` : "";
-
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` };
+
+  // Fetch jadwal aktif saat ini
+  useEffect(() => {
+    const fetchJadwalAktif = async () => {
+      setLoadingJadwal(true);
+      try {
+        const res = await fetch("/api/jadwal/aktif", { headers: authHeaders });
+        if (res.ok) {
+          const data = await res.json();
+          setJadwalAktif(data.jadwal || []);
+          setJamSekarang(data.jam || "");
+        }
+      } catch {}
+      setLoadingJadwal(false);
+    };
+    fetchJadwalAktif();
+  }, []);
 
   const fetchSesi = async (token: string) => {
     const res = await fetch(`/api/absensi/sesi/${token}`, { headers: authHeaders });
@@ -117,8 +148,10 @@ function AbsensiQR() {
 
   useEffect(() => () => stopPolling(), []);
 
-  const handleBukaSesi = async () => {
-    if (!selectedKelas || !selectedMapel) {
+  const handleBukaSesi = async (kelasId?: string, mapelId?: string) => {
+    const k = kelasId ?? selectedKelas;
+    const m = mapelId ?? selectedMapel;
+    if (!k || !m) {
       toast({ variant: "destructive", title: "Pilih kelas dan mata pelajaran terlebih dahulu" });
       return;
     }
@@ -127,17 +160,15 @@ function AbsensiQR() {
       const res = await fetch("/api/absensi/sesi", {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ kelas_id: Number(selectedKelas), mata_pelajaran_id: Number(selectedMapel), durasi_menit: Number(durasi) }),
+        body: JSON.stringify({ kelas_id: Number(k), mata_pelajaran_id: Number(m), durasi_menit: Number(durasi) }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      // Fetch full status immediately
       const statusRes = await fetch(`/api/absensi/sesi/${data.token}`, { headers: authHeaders });
       const statusData = await statusRes.json();
       setSesi(statusData);
 
-      // Timer countdown
       setTimeLeft(Math.floor((data.expires_at - Date.now()) / 1000));
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
@@ -145,8 +176,6 @@ function AbsensiQR() {
           return prev - 1;
         });
       }, 1000);
-
-      // Polling setiap 5 detik
       pollRef.current = setInterval(() => fetchSesi(data.token), 5000);
 
       toast({ title: "Sesi absensi QR berhasil dibuka!" });
@@ -178,46 +207,99 @@ function AbsensiQR() {
 
   if (!sesi) {
     return (
-      <Card className="border shadow-none rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-base">Buka Sesi Absensi QR</CardTitle>
-          <CardDescription>Siswa scan QR → otomatis terabsen hadir</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Kelas</label>
-              <Select value={selectedKelas} onValueChange={setSelectedKelas}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih Kelas" /></SelectTrigger>
-                <SelectContent>{kelasData?.map(k => <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Mata Pelajaran</label>
-              <Select value={selectedMapel} onValueChange={setSelectedMapel}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih Mapel" /></SelectTrigger>
-                <SelectContent>{mapelData?.map(m => <SelectItem key={m.id} value={m.id}>{m.nama_mapel}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Durasi (menit)</label>
-              <Select value={durasi} onValueChange={setDurasi}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 menit</SelectItem>
-                  <SelectItem value="15">15 menit</SelectItem>
-                  <SelectItem value="30">30 menit</SelectItem>
-                  <SelectItem value="60">60 menit</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="space-y-4">
+        {/* ── Jadwal Aktif Sekarang ── */}
+        {loadingJadwal ? (
+          <Card className="border shadow-none rounded-2xl">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : jadwalAktif.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Sedang Berlangsung · {jamSekarang} WIB</p>
+            {jadwalAktif.map((j) => (
+              <Card key={j.id} className="border-2 shadow-none rounded-2xl overflow-hidden" style={{ borderColor: "hsl(231,59%,26%,0.25)" }}>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "hsl(231,59%,26%)" }}>
+                      <QrCode className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground truncate">{j.mata_pelajaran?.nama_mapel ?? "—"}</p>
+                      <p className="text-sm text-muted-foreground">{j.kelas?.nama_kelas ?? "—"} · {j.jam_mulai}–{j.jam_selesai}</p>
+                    </div>
+                    <Button
+                      className="rounded-xl gap-2 shrink-0"
+                      onClick={() => handleBukaSesi(String(j.kelas_id), String(j.mata_pelajaran_id))}
+                      disabled={loading}
+                    >
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                      Buka Absensi
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          <Button onClick={handleBukaSesi} disabled={loading} className="rounded-xl gap-2">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-            Buka Sesi Absensi
-          </Button>
-        </CardContent>
-      </Card>
+        ) : (
+          <Card className="border shadow-none rounded-2xl bg-muted/40">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <Clock className="h-5 w-5 shrink-0" />
+                <p className="text-sm">Tidak ada jadwal mengajar yang aktif sekarang ({jamSekarang} WIB).</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Pilih Manual ── */}
+        <Card className="border shadow-none rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm text-muted-foreground font-medium">Atau pilih manual</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kelas</label>
+                <Select value={selectedKelas} onValueChange={setSelectedKelas}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih Kelas" /></SelectTrigger>
+                  <SelectContent>{kelasData?.map(k => <SelectItem key={k.id} value={k.id}>{k.nama_kelas}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Mata Pelajaran</label>
+                <Select value={selectedMapel} onValueChange={setSelectedMapel}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih Mapel" /></SelectTrigger>
+                  <SelectContent>{mapelData?.map(m => <SelectItem key={m.id} value={m.id}>{m.nama_mapel}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Durasi (menit)</label>
+                <Select value={durasi} onValueChange={setDurasi}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 menit</SelectItem>
+                    <SelectItem value="15">15 menit</SelectItem>
+                    <SelectItem value="30">30 menit</SelectItem>
+                    <SelectItem value="60">60 menit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button onClick={() => handleBukaSesi()} disabled={loading || !selectedKelas || !selectedMapel} className="rounded-xl gap-2">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+              Buka Sesi Absensi
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

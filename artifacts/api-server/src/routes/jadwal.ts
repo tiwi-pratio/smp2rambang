@@ -33,6 +33,43 @@ async function enrichJadwal(jadwalList: any[]) {
   }));
 }
 
+// GET /jadwal/aktif — jadwal yang sedang berjalan sekarang untuk guru yang login
+router.get("/jadwal/aktif", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const hariMap = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  // WIB = UTC+7
+  const nowWib = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const hariIni = hariMap[nowWib.getUTCDay()];
+  const jamSekarang = `${String(nowWib.getUTCHours()).padStart(2, "0")}:${String(nowWib.getUTCMinutes()).padStart(2, "0")}`;
+
+  let guruId = req.user!.guru_id;
+
+  // Jika guru_id belum ada di token, coba lookup dari nama
+  if (!guruId && req.user!.role === "guru") {
+    const { data: guruRows } = await supabase
+      .from("guru")
+      .select("id")
+      .eq("nama", req.user!.full_name)
+      .limit(2);
+    if (guruRows && guruRows.length === 1) guruId = String(guruRows[0].id);
+  }
+
+  // Admin boleh lihat semua jadwal aktif (tanpa filter guru)
+  let query = supabase
+    .from("jadwal")
+    .select("*")
+    .eq("hari", hariIni)
+    .lte("jam_mulai", jamSekarang)
+    .gte("jam_selesai", jamSekarang);
+
+  if (guruId) query = query.eq("guru_id", guruId);
+
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: "Internal Server Error", message: error.message }); return; }
+
+  const enriched = await enrichJadwal(data || []);
+  res.json({ hari: hariIni, jam: jamSekarang, jadwal: enriched });
+});
+
 router.get("/jadwal", requireAuth, async (req: AuthenticatedRequest, res) => {
   const { kelas_id: queryKelasId, guru_id } = req.query as Record<string, string>;
 
