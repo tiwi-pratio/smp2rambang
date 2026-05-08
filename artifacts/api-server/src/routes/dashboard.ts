@@ -67,18 +67,25 @@ router.get("/dashboard/guru-stats", requireAuth, async (req: AuthenticatedReques
   // Jadwal hari ini saja (difilter dari semua jadwal guru)
   const jadwalHariIni = allJadwalList.filter((j: any) => j.hari === hariIni);
 
-  // Kelas unik yang diajar guru ini
+  // Kelas unik yang diajar guru ini (dari jadwal)
   const kelasIds = [...new Set(allJadwalList.map((j: any) => j.kelas_id).filter(Boolean))];
-  // Mapel unik yang diajar guru ini
-  const mapelIds = [...new Set(allJadwalList.map((j: any) => j.mata_pelajaran_id).filter(Boolean))];
+  // Mapel IDs dari jadwal (untuk enrich jadwal hari ini)
+  const jadwalMapelIds = [...new Set(allJadwalList.map((j: any) => j.mata_pelajaran_id).filter(Boolean))];
 
-  // Fetch data pendukung secara paralel
-  const [{ data: kelasData }, { data: mapelData }, siswaCountRes] = await Promise.all([
+  // Fetch data pendukung secara paralel:
+  // - kelas dari jadwal
+  // - mapel dari jadwal (untuk enrich tampilan jadwal)
+  // - mapel yang diampu guru ini (langsung dari tabel mata_pelajaran, sesuai assignment admin)
+  // - hitung siswa di kelas yang diajar
+  const [{ data: kelasData }, { data: jadwalMapelData }, { data: mapelDiampu }, siswaCountRes] = await Promise.all([
     kelasIds.length > 0
       ? supabase.from("kelas").select("id, nama_kelas, tingkat, tahun_ajaran").in("id", kelasIds)
       : Promise.resolve({ data: [] }),
-    mapelIds.length > 0
-      ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", mapelIds)
+    jadwalMapelIds.length > 0
+      ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", jadwalMapelIds)
+      : Promise.resolve({ data: [] }),
+    guruId
+      ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").eq("guru_id", guruId).order("nama_mapel")
       : Promise.resolve({ data: [] }),
     kelasIds.length > 0
       ? supabase.from("siswa").select("id", { count: "exact" }).in("kelas_id", kelasIds)
@@ -88,7 +95,7 @@ router.get("/dashboard/guru-stats", requireAuth, async (req: AuthenticatedReques
   const km: Record<number, any> = {};
   const mm: Record<number, any> = {};
   for (const k of kelasData || []) km[(k as any).id] = k;
-  for (const m of mapelData || []) mm[(m as any).id] = m;
+  for (const m of jadwalMapelData || []) mm[(m as any).id] = m;
 
   // Enrich jadwal hari ini
   const jadwalRes = jadwalHariIni.map((j: any) => ({
@@ -97,8 +104,8 @@ router.get("/dashboard/guru-stats", requireAuth, async (req: AuthenticatedReques
     mata_pelajaran: mm[j.mata_pelajaran_id] || null,
   }));
 
-  // Mapel unik yang diampu (tanpa duplikat)
-  const mapelList = (mapelData || []);
+  // Mapel yang diampu guru ini sesuai assignment dari admin
+  const mapelList = (mapelDiampu || []);
 
   res.json({
     total_kelas_diajar: kelasIds.length,
