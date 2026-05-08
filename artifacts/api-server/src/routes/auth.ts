@@ -34,7 +34,20 @@ async function createSiswaRecord(full_name: string, jenis_kelamin: string, kelas
 async function createGuruRecord(full_name: string, nip?: string) {
   const { data, error } = await supabase
     .from("guru")
-    .insert({ nama: full_name, nip: nip || null })
+    .insert({
+      nama: full_name,
+      nip: nip || null,
+      no_hp: "",
+      alamat: "",
+      jenis_kelamin: "L",
+      tanggal_lahir: "1990-01-01",
+      tempat_lahir: "",
+      agama: "",
+      golongan_darah: "",
+      pendidikan_terakhir: "",
+      mata_pelajaran_diampu: "",
+      status_kepegawaian: "",
+    })
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message || "Gagal membuat data guru");
