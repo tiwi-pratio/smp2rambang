@@ -68,10 +68,11 @@ router.post("/absensi/sesi", requireAuth, async (req: AuthenticatedRequest, res)
     .select("id")
     .eq("kelas_id", Number(kelas_id));
 
-  const siswaKelasIds = new Set((siswaKelas || []).map((s: any) => s.id));
+  // Paksa ke Number untuk hindari type mismatch (supabase bisa return string atau number)
+  const siswaKelasIds = new Set((siswaKelas || []).map((s: any) => Number(s.id)));
   const hadirIds = (sudahHadir || [])
-    .map((a: any) => a.siswa_id)
-    .filter((id: number) => siswaKelasIds.has(id));
+    .map((a: any) => Number(a.siswa_id))
+    .filter((id) => siswaKelasIds.has(id));
 
   const { error } = await supabase.from("sesi_absensi").insert({
     token,
@@ -104,20 +105,38 @@ router.get("/absensi/sesi/:token", requireAuth, async (req: AuthenticatedRequest
     return;
   }
 
-  const siswaHadirIds = parseSiswaHadirIds(sesi.siswa_hadir_ids);
-
-  let siswaHadir: any[] = [];
-  if (siswaHadirIds.length > 0) {
-    const { data } = await supabase.from("siswa").select("id, nama, nis").in("id", siswaHadirIds);
-    siswaHadir = data || [];
-  }
-
-  const { count } = await supabase.from("siswa").select("id", { count: "exact" }).eq("kelas_id", sesi.kelas_id);
-
   const isExpired = Date.now() > Number(sesi.expires_at);
-
   if (isExpired) {
     supabase.from("sesi_absensi").delete().eq("token", sesi.token).then(() => {});
+  }
+
+  // Ambil dari sesi_absensi (scan realtime) PLUS absensi table (sudah tersimpan sebelumnya)
+  // — gabungkan keduanya sebagai sumber kebenaran
+  const sesiHadirIds = new Set(parseSiswaHadirIds(sesi.siswa_hadir_ids).map(Number));
+
+  const [absensiRows, siswaKelasRows] = await Promise.all([
+    supabase
+      .from("absensi")
+      .select("siswa_id")
+      .eq("mata_pelajaran_id", sesi.mata_pelajaran_id)
+      .eq("tanggal", sesi.tanggal)
+      .eq("status", "hadir"),
+    supabase.from("siswa").select("id", { count: "exact" }).eq("kelas_id", sesi.kelas_id),
+  ]);
+
+  // Gabungkan ID dari sesi dan dari absensi table
+  const siswaKelasIds = new Set((siswaKelasRows.data || []).map((s: any) => Number(s.id)));
+  for (const row of absensiRows.data || []) {
+    const id = Number(row.siswa_id);
+    if (siswaKelasIds.has(id)) sesiHadirIds.add(id);
+  }
+
+  const allHadirIds = [...sesiHadirIds];
+
+  let siswaHadir: any[] = [];
+  if (allHadirIds.length > 0) {
+    const { data } = await supabase.from("siswa").select("id, nama, nis").in("id", allHadirIds);
+    siswaHadir = data || [];
   }
 
   res.json({
@@ -127,8 +146,8 @@ router.get("/absensi/sesi/:token", requireAuth, async (req: AuthenticatedRequest
     tanggal: sesi.tanggal,
     expires_at: Number(sesi.expires_at),
     is_expired: isExpired,
-    total_siswa: count || 0,
-    jumlah_hadir: siswaHadirIds.length,
+    total_siswa: siswaKelasRows.count || 0,
+    jumlah_hadir: allHadirIds.length,
     siswa_hadir: siswaHadir,
   });
 });
