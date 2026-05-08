@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+.git
+.local
+.canvas
+.agents
+attached_assets
+**/*.log
+**/*.map
