@@ -1,0 +1,106 @@
+stage-0
+FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+102ms
+
+stage-0
+WORKDIR /app/ cached
+0ms
+no builders available in region - falling back to global scheduling
+scheduling build on Metal builder "builder-krazhj"
+[snapshot] received sha256:548612859413ff7189a534fbad373fb5f4b2cc64e7dbd0e5b7f33b5817b56b97 md5:84ecf00fdeeded76abace9a5d25fd294
+receiving snapshot
+5.9 MB
+656ms
+found 'nixpacks.toml' at 'nixpacks.toml'
+found 'railway.json' at 'railway.json'
+analyzing snapshot
+5.9 MB
+65ms
+unpacking archive
+7.5 MB
+105ms
+uploading snapshot
+5.9 MB
+234ms
+using build driver nixpacks-v1.41.0
+ 
+╔══════════════════════════════ Nixpacks v1.41.0 ══════════════════════════════╗
+║ setup      │ nodejs_22                                                       ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ install    │ corepack enable                                                 ║
+║            │ corepack prepare pnpm@latest --activate                         ║
+║            │ pnpm install --frozen-lockfile                                  ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ build      │ BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/siakad ║
+║            │ run build                                                       ║
+║            │ NODE_ENV=production pnpm --filter @workspace/api-server run     ║
+║            │ build                                                           ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ start      │ node --enable-source-maps artifacts/api-server/dist/index.mjs   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+ 
+ 
+Saved output to:
+  snapshot-target-unpack
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+596ms
+
+internal
+load .dockerignore
+0ms
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SESSION_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SUPABASE_ANON_KEY") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SUPABASE_SERVICE_ROLE_KEY") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SESSION_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SUPABASE_ANON_KEY") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SUPABASE_SERVICE_ROLE_KEY") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)(https://docs.docker.com/go/dockerfile/rule/undefined-var/)
+ details: Variables should be defined before their use
+
+internal
+load build context
+0ms
+
+stage-0
+COPY .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix cached
+0ms
+
+stage-0
+RUN nix-env -if .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix && nix-collect-garbage -d
+46s
+29 store paths deleted, 247.85 MiB freed
+
+stage-0
+COPY . /app/.
+639ms
+
+stage-0
+RUN corepack enable
+867ms
+
+stage-0
+RUN corepack prepare pnpm@latest --activate
+1s
+Preparing pnpm@latest for immediate activation...
+Internal Error: Cannot find matching keyid: {"signatures":[{"sig":"MEQCIFL1WdFVRF44sDxQoO6HvJxD1ETVFYHSfARLf3jQtotUAiBLwBR9ftmrTmHU6zU7KZCk3Tr9pgwvqTcBi8a8/qfl1Q==","keyid":"SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"}],"keys":[{"expires":null,"keyid":"SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA","keytype":"ecdsa-sha2-nistp256","scheme":"ecdsa-sha2-nistp256","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg=="}]}
+    at verifySignature (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:21535:47)
+    at installVersion (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:21882:7)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Engine.ensurePackageManager (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:22310:32)
+    at async PrepareCommand.execute (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:23019:27)
+    at async PrepareCommand.validateAndExecute (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:19835:22)
+    at async _Cli.run (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:20772:18)
+    at async Object.runMain (/nix/store/fkyp1bm5gll9adnfcj92snyym524mdrj-nodejs-22.11.0/lib/node_modules/corepack/dist/lib/corepack.cjs:23091:19)
+Build Failed: build daemon returned an error < failed to solve: process "/bin/bash -ol pipefail -c corepack prepare pnpm@latest --activate" did not complete successfully: exit code: 1 
