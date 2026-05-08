@@ -21,6 +21,7 @@ import {
   KeyRound,
   UserCircle,
   AlertTriangle,
+  BarChart2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +63,7 @@ const getAdminMenu = () => [
   { group: "Akademik", items: [
     { title: "Jadwal", icon: Calendar, url: "/jadwal" },
     { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
+    { title: "Rekap Absensi", icon: BarChart2, url: "/rekap-absensi" },
     { title: "Nilai", icon: FileText, url: "/nilai" },
     { title: "Raport", icon: GraduationCap, url: "/raport" },
   ]},
@@ -77,6 +79,7 @@ const getGuruMenu = () => [
   { group: "Akademik", items: [
     { title: "Jadwal", icon: Calendar, url: "/jadwal" },
     { title: "Absensi", icon: ClipboardCheck, url: "/absensi" },
+    { title: "Rekap Absensi", icon: BarChart2, url: "/rekap-absensi" },
     { title: "Nilai", icon: FileText, url: "/nilai" },
     { title: "Raport", icon: GraduationCap, url: "/raport" },
   ]},
@@ -113,6 +116,7 @@ const getPageTitle = (pathname: string) => {
     "/mata-pelajaran": "Mata Pelajaran",
     "/jadwal": "Jadwal Pelajaran",
     "/absensi": "Absensi",
+    "/rekap-absensi": "Rekap Absensi",
     "/nilai": "Data Nilai",
     "/raport": "Raport Siswa",
     "/profil/edit": "Edit Profil",

@@ -243,6 +243,151 @@ router.post("/absensi/scan", requireAuth, async (req: AuthenticatedRequest, res)
 
 // ── END SESI QR ───────────────────────────────────────────────────────────
 
+// GET /absensi/rekap-mapel — pivot table: siswa x pertemuan (tanggal) untuk 1 mapel
+router.get("/absensi/rekap-mapel", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const { kelas_id, mata_pelajaran_id, bulan } = req.query as Record<string, string>;
+
+  if (!kelas_id || !mata_pelajaran_id || !bulan) {
+    res.status(400).json({ error: "Bad Request", message: "kelas_id, mata_pelajaran_id, dan bulan wajib diisi" });
+    return;
+  }
+
+  const [tahun, bln] = bulan.split("-");
+  const startDate = `${bulan}-01`;
+  const lastDay = new Date(parseInt(tahun), parseInt(bln), 0).getDate();
+  const endDate = `${bulan}-${lastDay.toString().padStart(2, "0")}`;
+
+  const { data: siswaList } = await supabase
+    .from("siswa")
+    .select("id, nama, nis")
+    .eq("kelas_id", Number(kelas_id))
+    .order("nama");
+
+  const siswaIds = (siswaList || []).map((s: any) => s.id);
+  if (siswaIds.length === 0) {
+    res.json({ pertemuan: [], siswa: [] });
+    return;
+  }
+
+  const { data: absensiList } = await supabase
+    .from("absensi")
+    .select("siswa_id, tanggal, status, keterangan")
+    .in("siswa_id", siswaIds)
+    .eq("mata_pelajaran_id", Number(mata_pelajaran_id))
+    .gte("tanggal", startDate)
+    .lte("tanggal", endDate)
+    .order("tanggal");
+
+  const pertemuanSet = new Set((absensiList || []).map((a: any) => a.tanggal));
+  const pertemuan = [...pertemuanSet].sort() as string[];
+
+  const siswa = (siswaList || []).map((s: any) => {
+    const kehadiran: Record<string, string> = {};
+    const rekap = { hadir: 0, izin: 0, sakit: 0, alfa: 0 };
+    for (const a of absensiList || []) {
+      if (Number(a.siswa_id) === Number(s.id)) {
+        kehadiran[a.tanggal] = a.status;
+        if (a.status in rekap) rekap[a.status as keyof typeof rekap]++;
+      }
+    }
+    const pct = pertemuan.length > 0 ? Math.round((rekap.hadir / pertemuan.length) * 100) : 0;
+    return { id: s.id, nama: s.nama, nis: s.nis, kehadiran, rekap, pct };
+  });
+
+  res.json({ bulan, kelas_id: Number(kelas_id), mata_pelajaran_id: Number(mata_pelajaran_id), pertemuan, siswa });
+});
+
+// GET /absensi/mapel-list — daftar mapel beserta summary kehadiran untuk 1 kelas + bulan
+router.get("/absensi/mapel-list", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const { kelas_id, bulan } = req.query as Record<string, string>;
+
+  if (!kelas_id || !bulan) {
+    res.status(400).json({ error: "Bad Request", message: "kelas_id dan bulan wajib diisi" });
+    return;
+  }
+
+  const [tahun, bln] = bulan.split("-");
+  const startDate = `${bulan}-01`;
+  const lastDay = new Date(parseInt(tahun), parseInt(bln), 0).getDate();
+  const endDate = `${bulan}-${lastDay.toString().padStart(2, "0")}`;
+
+  // Ambil jadwal kelas ini untuk tahu mapel apa saja yang diajarkan
+  let jadwalQuery = supabase
+    .from("jadwal")
+    .select("mata_pelajaran_id, guru_id")
+    .eq("kelas_id", Number(kelas_id));
+
+  // Guru hanya lihat mapel yang dia ajar
+  if (req.user!.role === "guru" && req.user!.profile_id) {
+    jadwalQuery = jadwalQuery.eq("guru_id", req.user!.profile_id);
+  }
+
+  const { data: jadwalList } = await jadwalQuery;
+  if (!jadwalList || jadwalList.length === 0) {
+    res.json({ mapel: [] });
+    return;
+  }
+
+  // Ambil mapel dan guru unik
+  const uniqueMapelIds = [...new Set((jadwalList).map((j: any) => j.mata_pelajaran_id))];
+  const uniqueGuruIds  = [...new Set((jadwalList).map((j: any) => j.guru_id).filter(Boolean))];
+
+  const [{ data: mapelRows }, { data: guruRows }] = await Promise.all([
+    supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", uniqueMapelIds),
+    supabase.from("guru").select("id, nama").in("id", uniqueGuruIds),
+  ]);
+
+  const mapelById: Record<number, any> = {};
+  for (const m of mapelRows || []) mapelById[m.id] = m;
+  const guruById: Record<number, any> = {};
+  for (const g of guruRows || []) guruById[g.id] = g;
+
+  // Deduplikasi mapel — simpan guru pertama yang ditemukan
+  const mapelMap: Record<number, any> = {};
+  for (const j of jadwalList) {
+    const mid = j.mata_pelajaran_id;
+    if (!mapelMap[mid]) {
+      const mp = mapelById[mid];
+      if (mp) mapelMap[mid] = { ...mp, guru: guruById[j.guru_id] || null };
+    }
+  }
+  const mapelList = Object.values(mapelMap);
+
+  if (mapelList.length === 0) {
+    res.json({ mapel: [] });
+    return;
+  }
+
+  // Ambil siswa kelas ini
+  const { data: siswaList } = await supabase.from("siswa").select("id").eq("kelas_id", Number(kelas_id));
+  const siswaIds = (siswaList || []).map((s: any) => s.id);
+  const totalSiswa = siswaIds.length;
+
+  // Summary per mapel
+  const mapelWithSummary = await Promise.all(
+    mapelList.map(async (mp) => {
+      if (siswaIds.length === 0) return { ...mp, pertemuan: 0, rata_hadir: 0, total_siswa: 0 };
+      const { data: absensi } = await supabase
+        .from("absensi")
+        .select("tanggal, status")
+        .in("siswa_id", siswaIds)
+        .eq("mata_pelajaran_id", mp.id)
+        .gte("tanggal", startDate)
+        .lte("tanggal", endDate);
+
+      const pertemuanSet = new Set((absensi || []).map((a: any) => a.tanggal));
+      const pertemuan = pertemuanSet.size;
+      const totalHadir = (absensi || []).filter((a: any) => a.status === "hadir").length;
+      const totalRecord = (absensi || []).length;
+      const rataHadir = totalRecord > 0 ? Math.round((totalHadir / totalRecord) * 100) : 0;
+
+      return { ...mp, pertemuan, rata_hadir: rataHadir, total_siswa: totalSiswa };
+    })
+  );
+
+  res.json({ mapel: mapelWithSummary });
+});
+
 router.get("/absensi/rekap", requireAuth, async (req: AuthenticatedRequest, res) => {
   const { siswa_id, bulan, kelas_id } = req.query as Record<string, string>;
 
