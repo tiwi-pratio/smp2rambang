@@ -285,33 +285,21 @@ function SiswaDashboard() {
           </CardContent>
         </Card>
 
+        {/* Kelas + Jadwal Hari Ini — digabung */}
         <Card className="border border-border shadow-none rounded-2xl sm:col-span-2">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Kelas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "hsl(213,39%,47%,0.1)" }}>
-                <School className="h-5 w-5" style={{ color: "hsl(213,39%,47%)" }} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-semibold">Jadwal Hari Ini</CardTitle>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{stats.kelas || "-"}</p>
-                <p className="text-xs text-muted-foreground">Kelas aktif Anda</p>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-lg" style={{ background: "hsl(213,39%,47%,0.1)" }}>
+                <School className="h-3.5 w-3.5" style={{ color: "hsl(213,39%,47%)" }} />
+                <span className="text-xs font-semibold" style={{ color: "hsl(213,39%,47%)" }}>
+                  {stats.kelas || "-"}
+                </span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Jadwal Hari Ini */}
-        <Card className="border border-border shadow-none rounded-2xl">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-sm font-semibold">Jadwal Hari Ini</CardTitle>
-            </div>
-            <p className="text-xs text-muted-foreground">Kelas {stats.kelas}</p>
           </CardHeader>
           <CardContent>
             {stats.jadwal_hari_ini?.length > 0 ? (
@@ -340,44 +328,44 @@ function SiswaDashboard() {
             )}
           </CardContent>
         </Card>
-
-        {/* Nilai Terbaru */}
-        <Card className="border border-border shadow-none rounded-2xl">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-sm font-semibold">Nilai Terbaru</CardTitle>
-            </div>
-            <p className="text-xs text-muted-foreground">Rangkuman nilai mata pelajaran</p>
-          </CardHeader>
-          <CardContent>
-            {stats.nilai_terbaru?.length > 0 ? (
-              <div className="space-y-2">
-                {stats.nilai_terbaru.map((nilai) => {
-                  const nilaiAkhir = nilai.nilai_akhir;
-                  const passed = nilaiAkhir && nilaiAkhir >= 75;
-                  return (
-                    <div key={nilai.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                      <span className="text-sm font-medium text-foreground">{nilai.mata_pelajaran?.nama_mapel}</span>
-                      <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-                          passed
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-red-50 text-red-600"
-                        }`}
-                      >
-                        {nilaiAkhir ?? "-"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <EmptyState icon={FileText} message="Belum ada data nilai" />
-            )}
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Nilai Terbaru — full width */}
+      <Card className="border border-border shadow-none rounded-2xl">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold">Nilai Terbaru</CardTitle>
+          </div>
+          <p className="text-xs text-muted-foreground">Rangkuman nilai mata pelajaran</p>
+        </CardHeader>
+        <CardContent>
+          {stats.nilai_terbaru?.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {stats.nilai_terbaru.map((nilai) => {
+                const nilaiAkhir = nilai.nilai_akhir;
+                const passed = nilaiAkhir && nilaiAkhir >= 75;
+                return (
+                  <div key={nilai.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                    <span className="text-sm font-medium text-foreground">{nilai.mata_pelajaran?.nama_mapel}</span>
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                        passed
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-red-50 text-red-600"
+                      }`}
+                    >
+                      {nilaiAkhir ?? "-"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState icon={FileText} message="Belum ada data nilai" />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
