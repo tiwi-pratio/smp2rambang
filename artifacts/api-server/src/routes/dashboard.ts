@@ -45,22 +45,39 @@ router.get("/dashboard/admin-stats", requireAuth, async (req: AuthenticatedReque
 router.get("/dashboard/guru-stats", requireAuth, async (req: AuthenticatedRequest, res) => {
   const hariIni = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][new Date().getDay()];
 
-  // Ambil semua jadwal hari ini untuk demo (dalam implementasi nyata pakai profile_guru_id)
-  const { data: jadwalRes } = await supabase
-    .from("jadwal")
-    .select("*, kelas(id, nama_kelas, tingkat, tahun_ajaran), mata_pelajaran(id, nama_mapel, kode_mapel), guru(id, nama, nip)")
-    .eq("hari", hariIni)
-    .limit(10);
+  const [{ data: jadwalRaw }, { data: mapelRes }] = await Promise.all([
+    supabase.from("jadwal").select("id, kelas_id, mata_pelajaran_id, guru_id, hari, jam_mulai, jam_selesai").eq("hari", hariIni).limit(10),
+    supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").limit(5),
+  ]);
 
-  const { data: mapelRes } = await supabase
-    .from("mata_pelajaran")
-    .select("id, nama_mapel, kode_mapel")
-    .limit(5);
+  // Enrich jadwal with separate queries
+  const jadwalList = jadwalRaw || [];
+  let jadwalRes = jadwalList;
+  if (jadwalList.length > 0) {
+    const kelasIds = [...new Set(jadwalList.map((j: any) => j.kelas_id).filter(Boolean))];
+    const mapelIds = [...new Set(jadwalList.map((j: any) => j.mata_pelajaran_id).filter(Boolean))];
+    const guruIds = [...new Set(jadwalList.map((j: any) => j.guru_id).filter(Boolean))];
+
+    const [{ data: kelasData }, { data: mapelData }, { data: guruData }] = await Promise.all([
+      kelasIds.length > 0 ? supabase.from("kelas").select("id, nama_kelas, tingkat, tahun_ajaran").in("id", kelasIds) : Promise.resolve({ data: [] }),
+      mapelIds.length > 0 ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", mapelIds) : Promise.resolve({ data: [] }),
+      guruIds.length > 0 ? supabase.from("guru").select("id, nama, nip").in("id", guruIds) : Promise.resolve({ data: [] }),
+    ]);
+
+    const km: Record<number, any> = {};
+    const mm: Record<number, any> = {};
+    const gm: Record<number, any> = {};
+    for (const k of kelasData || []) km[(k as any).id] = k;
+    for (const m of mapelData || []) mm[(m as any).id] = m;
+    for (const g of guruData || []) gm[(g as any).id] = g;
+
+    jadwalRes = jadwalList.map((j: any) => ({ ...j, kelas: km[j.kelas_id] || null, mata_pelajaran: mm[j.mata_pelajaran_id] || null, guru: gm[j.guru_id] || null }));
+  }
 
   res.json({
     total_kelas_diajar: 3,
     total_siswa_diajar: 15,
-    jadwal_hari_ini: jadwalRes || [],
+    jadwal_hari_ini: jadwalRes,
     mata_pelajaran: mapelRes || [],
   });
 });
@@ -100,25 +117,52 @@ router.get("/dashboard/siswa-stats", requireAuth, async (req: AuthenticatedReque
     }
   }
 
-  // Jadwal hari ini untuk kelas siswa
-  const jadwalQuery = supabase
+  // Jadwal hari ini untuk kelas siswa — query terpisah, tidak pakai join syntax
+  let jadwalQuery = supabase
     .from("jadwal")
-    .select("*, mata_pelajaran(id, nama_mapel, kode_mapel), guru(id, nama)")
+    .select("id, kelas_id, mata_pelajaran_id, guru_id, hari, jam_mulai, jam_selesai")
     .eq("hari", hariIni)
     .limit(8);
-  const { data: jadwalRes } = kelasId
-    ? await jadwalQuery.eq("kelas_id", kelasId)
-    : await jadwalQuery;
+  if (kelasId) jadwalQuery = jadwalQuery.eq("kelas_id", kelasId) as typeof jadwalQuery;
+  const { data: jadwalRaw } = await jadwalQuery;
 
-  // Nilai terbaru untuk siswa ini
-  const nilaiQuery = supabase
-    .from("nilai")
-    .select("*, mata_pelajaran(id, nama_mapel, kode_mapel)")
-    .order("id", { ascending: false })
-    .limit(5);
-  const { data: nilaiRes } = siswaId
-    ? await nilaiQuery.eq("siswa_id", siswaId)
-    : { data: [] };
+  // Enrich jadwal
+  let jadwalRes: any[] = [];
+  const jadwalList = jadwalRaw || [];
+  if (jadwalList.length > 0) {
+    const mapelIds = [...new Set(jadwalList.map((j: any) => j.mata_pelajaran_id).filter(Boolean))];
+    const guruIds = [...new Set(jadwalList.map((j: any) => j.guru_id).filter(Boolean))];
+    const [{ data: mapelData }, { data: guruData }] = await Promise.all([
+      mapelIds.length > 0 ? supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", mapelIds) : Promise.resolve({ data: [] }),
+      guruIds.length > 0 ? supabase.from("guru").select("id, nama").in("id", guruIds) : Promise.resolve({ data: [] }),
+    ]);
+    const mm: Record<number, any> = {};
+    const gm: Record<number, any> = {};
+    for (const m of mapelData || []) mm[(m as any).id] = m;
+    for (const g of guruData || []) gm[(g as any).id] = g;
+    jadwalRes = jadwalList.map((j: any) => ({ ...j, mata_pelajaran: mm[j.mata_pelajaran_id] || null, guru: gm[j.guru_id] || null }));
+  }
+
+  // Nilai terbaru untuk siswa ini — query terpisah, tidak pakai join syntax
+  let nilaiRes: any[] = [];
+  if (siswaId) {
+    const { data: nilaiRaw } = await supabase
+      .from("nilai")
+      .select("id, siswa_id, mata_pelajaran_id, nilai_harian, nilai_uts, nilai_uas, nilai_akhir")
+      .eq("siswa_id", siswaId)
+      .order("id", { ascending: false })
+      .limit(5);
+    const nilaiList = nilaiRaw || [];
+    if (nilaiList.length > 0) {
+      const mapelIds = [...new Set(nilaiList.map((n: any) => n.mata_pelajaran_id).filter(Boolean))];
+      const { data: mapelData } = mapelIds.length > 0
+        ? await supabase.from("mata_pelajaran").select("id, nama_mapel, kode_mapel").in("id", mapelIds)
+        : { data: [] };
+      const mm: Record<number, any> = {};
+      for (const m of mapelData || []) mm[(m as any).id] = m;
+      nilaiRes = nilaiList.map((n: any) => ({ ...n, mata_pelajaran: mm[n.mata_pelajaran_id] || null }));
+    }
+  }
 
   // Rekap absensi bulan ini untuk siswa ini
   const rekap = { hadir: 0, izin: 0, sakit: 0, alfa: 0, total: 0 };
