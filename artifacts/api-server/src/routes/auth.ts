@@ -38,15 +38,6 @@ async function createGuruRecord(full_name: string, nip?: string) {
       nama: full_name,
       nip: nip || null,
       no_hp: "",
-      alamat: "",
-      jenis_kelamin: "L",
-      tanggal_lahir: "1990-01-01",
-      tempat_lahir: "",
-      agama: "",
-      golongan_darah: "",
-      pendidikan_terakhir: "",
-      mata_pelajaran_diampu: "",
-      status_kepegawaian: "",
     })
     .select("id")
     .single();
