@@ -86,12 +86,17 @@ router.get("/dashboard/siswa-stats", requireAuth, async (req: AuthenticatedReque
   if (siswaId) {
     const { data: siswa } = await supabase
       .from("siswa")
-      .select("kelas_id, kelas:kelas_id(id, nama_kelas)")
+      .select("kelas_id")
       .eq("id", siswaId)
       .single();
     if (siswa?.kelas_id) {
       kelasId = siswa.kelas_id;
-      kelasNama = (siswa as any).kelas?.nama_kelas || "-";
+      const { data: kelas } = await supabase
+        .from("kelas")
+        .select("nama_kelas")
+        .eq("id", siswa.kelas_id)
+        .single();
+      kelasNama = kelas?.nama_kelas || "-";
     }
   }
 
