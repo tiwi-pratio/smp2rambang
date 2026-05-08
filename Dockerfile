@@ -5,9 +5,9 @@ RUN apk add --no-cache git
 
 WORKDIR /app
 
-# Install pnpm 9 (matches lockfileVersion: '9.0')
+# Install pnpm 10 (matches version used to generate the lockfile)
 # npm global bin is already on PATH in official node images
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 # Copy workspace config files first (for better layer caching)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.json tsconfig.base.json ./
