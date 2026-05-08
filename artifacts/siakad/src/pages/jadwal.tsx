@@ -11,7 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, Calendar, BookOpen, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Loader2, Calendar, BookOpen, AlertCircle, School } from "lucide-react";
 import { fetchMySiswa } from "@/lib/profil-api";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -79,12 +79,13 @@ export default function JadwalPage() {
   const { data: user, isLoading: userLoading } = useGetMe();
   const isAdmin = user?.role === "admin";
   const isSiswa = user?.role === "siswa";
+  const isGuru = user?.role === "guru";
 
-  // Admin/guru filter state
+  // Admin filter state
   const [selectedKelas, setSelectedKelas] = useState<string>("all");
   const [filterTingkat, setFilterTingkat] = useState<string>("all");
 
-  // Siswa: auto-resolved kelas from localStorage (set at login) or API fallback
+  // Siswa: auto-resolved kelas
   const [siswaKelasId, setSiswaKelasId] = useState<string | null>(null);
   const [siswaKelasName, setSiswaKelasName] = useState<string | null>(null);
   const [siswaResolved, setSiswaResolved] = useState(false);
@@ -100,19 +101,16 @@ export default function JadwalPage() {
       return;
     }
 
-    // Primary: kelas_id saved at login time in localStorage
     const stored = localStorage.getItem("siakad_siswa_kelas_id");
     if (stored) {
       setSiswaKelasId(stored);
       setSiswaResolved(true);
-      // Background: fetch kelas name for display only
       fetchMySiswa()
         .then((d) => { if (d?.kelas?.nama_kelas) setSiswaKelasName(d.kelas.nama_kelas); })
         .catch(() => {});
       return;
     }
 
-    // Fallback: resolve via API (for users logged in before this fix)
     fetchMySiswa()
       .then((d) => {
         if (d?.kelas_id) {
@@ -128,23 +126,25 @@ export default function JadwalPage() {
       .finally(() => setSiswaResolved(true));
   }, [user, userLoading, isSiswa]);
 
-  const effectiveKelasId = useMemo(() => {
-    if (isSiswa) return siswaKelasId || undefined;
-    return selectedKelas !== "all" ? selectedKelas : undefined;
-  }, [isSiswa, siswaKelasId, selectedKelas]);
-
-  // For siswa: backend enforces their own kelas, no need to pass kelas_id param
-  // For admin/guru: pass selected kelas filter
-  const { data: jadwalData, isLoading } = useListJadwal(
-    isSiswa ? undefined : (effectiveKelasId ? { kelas_id: effectiveKelasId } : undefined),
-    {
-      query: {
-        enabled: isSiswa
-          ? siswaResolved && !siswaNotLinked
-          : true,
-      },
+  // Build query params per role
+  const jadwalParams = useMemo(() => {
+    if (isSiswa) return undefined; // backend auto-resolves kelas for siswa
+    if (isGuru) {
+      // Pass guru_id so backend filters their own schedule
+      return user?.profile_id ? { guru_id: String(user.profile_id) } : undefined;
     }
-  );
+    // Admin: optional kelas filter
+    const kelas = selectedKelas !== "all" ? selectedKelas : undefined;
+    return kelas ? { kelas_id: kelas } : undefined;
+  }, [isSiswa, isGuru, user, selectedKelas]);
+
+  const { data: jadwalData, isLoading } = useListJadwal(jadwalParams, {
+    query: {
+      enabled: isSiswa
+        ? siswaResolved && !siswaNotLinked
+        : !userLoading && !!user,
+    },
+  });
 
   const { data: kelasData } = useListKelas();
   const { data: mapelData } = useListMataPelajaran();
@@ -186,14 +186,7 @@ export default function JadwalPage() {
 
   const handleCloseCreate = () => {
     setIsCreateOpen(false);
-    form.reset({
-      kelas_id: "",
-      mata_pelajaran_id: "",
-      guru_id: "",
-      hari: "Senin",
-      jam_mulai: "07:00",
-      jam_selesai: "08:30",
-    });
+    form.reset({ kelas_id: "", mata_pelajaran_id: "", guru_id: "", hari: "Senin", jam_mulai: "07:00", jam_selesai: "08:30" });
   };
 
   const onSubmit = (values: JadwalFormValues) => {
@@ -206,11 +199,7 @@ export default function JadwalPage() {
           queryClient.invalidateQueries({ queryKey: getListJadwalQueryKey() });
         },
         onError: (err: any) => {
-          toast({
-            variant: "destructive",
-            title: "Gagal menambahkan jadwal",
-            description: err?.data?.message || "Terjadi kesalahan. Coba lagi.",
-          });
+          toast({ variant: "destructive", title: "Gagal menambahkan jadwal", description: err?.data?.message || "Terjadi kesalahan. Coba lagi." });
         },
       }
     );
@@ -225,11 +214,7 @@ export default function JadwalPage() {
           queryClient.invalidateQueries({ queryKey: getListJadwalQueryKey() });
         },
         onError: (err: any) => {
-          toast({
-            variant: "destructive",
-            title: "Gagal menghapus jadwal",
-            description: err?.data?.message || "Terjadi kesalahan. Coba lagi.",
-          });
+          toast({ variant: "destructive", title: "Gagal menghapus jadwal", description: err?.data?.message || "Terjadi kesalahan. Coba lagi." });
         },
       }
     );
@@ -246,19 +231,31 @@ export default function JadwalPage() {
     {} as Record<string, any[]>
   );
 
-  // Kelas name to display in header for siswa
+  // Guru: count total sesi mengajar per minggu
+  const totalSesiGuru = useMemo(() => {
+    if (!isGuru || !jadwalData) return 0;
+    return jadwalData.length;
+  }, [isGuru, jadwalData]);
+
+  // Guru: daftar kelas unik yang diajar
+  const kelasUnikGuru = useMemo(() => {
+    if (!isGuru || !jadwalData) return [];
+    const seen = new Set<string>();
+    return jadwalData
+      .filter((j: any) => j.kelas?.nama_kelas && !seen.has(j.kelas.nama_kelas) && seen.add(j.kelas.nama_kelas))
+      .map((j: any) => j.kelas!.nama_kelas as string);
+  }, [isGuru, jadwalData]);
+
   const siswaDisplayKelas = useMemo(() => {
     if (!isSiswa) return null;
     if (siswaKelasName) return siswaKelasName;
-    // Try from returned jadwal data
     const anyJadwal = jadwalData?.find((j: any) => j.kelas?.nama_kelas);
     if (anyJadwal?.kelas?.nama_kelas) return anyJadwal.kelas.nama_kelas;
-    // Try from kelas list
     if (siswaKelasId) return kelasData?.find((k) => String(k.id) === siswaKelasId)?.nama_kelas ?? null;
     return null;
   }, [isSiswa, siswaKelasName, siswaKelasId, jadwalData, kelasData]);
 
-  const isLoadingView = isLoading || (isSiswa && !siswaResolved);
+  const isLoadingView = isLoading || (isSiswa && !siswaResolved) || (isGuru && userLoading);
 
   return (
     <div className="space-y-6">
@@ -269,26 +266,34 @@ export default function JadwalPage() {
             <Calendar className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Jadwal Pelajaran</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isGuru ? "Jadwal Mengajar" : "Jadwal Pelajaran"}
+            </h1>
             {isSiswa && siswaDisplayKelas && (
               <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                 <BookOpen className="h-3.5 w-3.5" />
                 {siswaDisplayKelas}
               </p>
             )}
+            {isGuru && !isLoadingView && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                <School className="h-3.5 w-3.5" />
+                {totalSesiGuru} sesi/minggu
+                {kelasUnikGuru.length > 0 && (
+                  <span className="ml-1">· {kelasUnikGuru.join(", ")}</span>
+                )}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* Admin/guru kelas filter */}
-          {!isSiswa && (
+          {/* Admin only: kelas filter */}
+          {isAdmin && (
             <div className="flex items-center gap-2">
               <Select
                 value={filterTingkat}
-                onValueChange={(v) => {
-                  setFilterTingkat(v);
-                  setSelectedKelas("all");
-                }}
+                onValueChange={(v) => { setFilterTingkat(v); setSelectedKelas("all"); }}
               >
                 <SelectTrigger className="w-[130px]">
                   <SelectValue placeholder="Tingkat" />
@@ -318,13 +323,7 @@ export default function JadwalPage() {
 
           {/* Admin: tambah jadwal */}
           {isAdmin && (
-            <Dialog
-              open={isCreateOpen}
-              onOpenChange={(open) => {
-                if (open) handleOpenCreate();
-                else handleCloseCreate();
-              }}
-            >
+            <Dialog open={isCreateOpen} onOpenChange={(open) => { if (open) handleOpenCreate(); else handleCloseCreate(); }}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -345,15 +344,11 @@ export default function JadwalPage() {
                           <FormLabel>Hari</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Pilih Hari" />
-                              </SelectTrigger>
+                              <SelectTrigger><SelectValue placeholder="Pilih Hari" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {HARI_OPTIONS.map((h) => (
-                                <SelectItem key={h} value={h}>
-                                  {h}
-                                </SelectItem>
+                                <SelectItem key={h} value={h}>{h}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -368,9 +363,7 @@ export default function JadwalPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Jam Mulai</FormLabel>
-                            <FormControl>
-                              <Input type="time" {...field} />
-                            </FormControl>
+                            <FormControl><Input type="time" {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -381,9 +374,7 @@ export default function JadwalPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Jam Selesai</FormLabel>
-                            <FormControl>
-                              <Input type="time" {...field} />
-                            </FormControl>
+                            <FormControl><Input type="time" {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -396,11 +387,7 @@ export default function JadwalPage() {
                         <FormItem>
                           <FormLabel>Kelas</FormLabel>
                           <FormControl>
-                            <KelasSelector
-                              kelasList={kelasData ?? []}
-                              value={field.value}
-                              onValueChange={field.onChange}
-                            />
+                            <KelasSelector kelasList={kelasData ?? []} value={field.value} onValueChange={field.onChange} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -414,15 +401,11 @@ export default function JadwalPage() {
                           <FormLabel>Mata Pelajaran</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Pilih Mata Pelajaran" />
-                              </SelectTrigger>
+                              <SelectTrigger><SelectValue placeholder="Pilih Mata Pelajaran" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {mapelData?.map((m) => (
-                                <SelectItem key={m.id} value={m.id}>
-                                  {m.nama_mapel}
-                                </SelectItem>
+                                <SelectItem key={m.id} value={m.id}>{m.nama_mapel}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -438,15 +421,11 @@ export default function JadwalPage() {
                           <FormLabel>Guru Pengampu</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Pilih Guru" />
-                              </SelectTrigger>
+                              <SelectTrigger><SelectValue placeholder="Pilih Guru" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {guruData?.map((g) => (
-                                <SelectItem key={g.id} value={g.id}>
-                                  {g.nama}
-                                </SelectItem>
+                                <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -455,13 +434,9 @@ export default function JadwalPage() {
                       )}
                     />
                     <div className="flex justify-end gap-2 pt-2">
-                      <Button type="button" variant="outline" onClick={handleCloseCreate}>
-                        Batal
-                      </Button>
+                      <Button type="button" variant="outline" onClick={handleCloseCreate}>Batal</Button>
                       <Button type="submit" disabled={createMutation.isPending}>
-                        {createMutation.isPending && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
+                        {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Simpan Jadwal
                       </Button>
                     </div>
@@ -550,25 +525,50 @@ export default function JadwalPage() {
                           key={jadwal.id}
                           className="p-4 flex gap-4 hover:bg-muted/50 transition-colors group"
                         >
-                          <div className="shrink-0 text-sm font-medium text-center">
+                          {/* Jam */}
+                          <div className="shrink-0 text-sm font-medium text-center min-w-[48px]">
                             <div className="text-primary">{jadwal.jam_mulai}</div>
-                            <div className="text-muted-foreground text-xs">
-                              {jadwal.jam_selesai}
-                            </div>
+                            <div className="text-muted-foreground text-xs">{jadwal.jam_selesai}</div>
                           </div>
+
+                          {/* Info utama */}
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold truncate">
                               {jadwal.mata_pelajaran?.nama_mapel}
                             </div>
-                            <div className="text-sm text-muted-foreground truncate">
-                              {jadwal.guru?.nama}
-                            </div>
-                            {selectedKelas === "all" && !isSiswa && jadwal.kelas?.nama_kelas && (
-                              <Badge variant="secondary" className="mt-1">
-                                {jadwal.kelas.nama_kelas}
-                              </Badge>
+
+                            {/* Guru: tampilkan kelas yang diajar */}
+                            {isGuru && jadwal.kelas?.nama_kelas && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Badge variant="secondary" className="text-xs">
+                                  {jadwal.kelas.nama_kelas}
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Siswa: tampilkan nama guru pengajar */}
+                            {isSiswa && (
+                              <div className="text-sm text-muted-foreground truncate mt-0.5">
+                                {jadwal.guru?.nama}
+                              </div>
+                            )}
+
+                            {/* Admin: tampilkan guru + kelas (saat no filter) */}
+                            {isAdmin && (
+                              <>
+                                <div className="text-sm text-muted-foreground truncate mt-0.5">
+                                  {jadwal.guru?.nama}
+                                </div>
+                                {selectedKelas === "all" && jadwal.kelas?.nama_kelas && (
+                                  <Badge variant="secondary" className="mt-1 text-xs">
+                                    {jadwal.kelas.nama_kelas}
+                                  </Badge>
+                                )}
+                              </>
                             )}
                           </div>
+
+                          {/* Admin: hapus */}
                           {isAdmin && (
                             <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                               <AlertDialog>
@@ -585,22 +585,13 @@ export default function JadwalPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Hapus Jadwal?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Jadwal{" "}
-                                      <strong>
-                                        {jadwal.mata_pelajaran?.nama_mapel}
-                                      </strong>{" "}
-                                      hari {jadwal.hari} akan dihapus permanen.
+                                      Jadwal <strong>{jadwal.mata_pelajaran?.nama_mapel}</strong> hari {jadwal.hari} akan dihapus permanen.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Batal</AlertDialogCancel>
                                     <AlertDialogAction
-                                      onClick={() =>
-                                        handleDelete(
-                                          jadwal.id,
-                                          jadwal.mata_pelajaran?.nama_mapel
-                                        )
-                                      }
+                                      onClick={() => handleDelete(jadwal.id, jadwal.mata_pelajaran?.nama_mapel)}
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
                                       Hapus
