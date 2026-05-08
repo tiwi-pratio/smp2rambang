@@ -9,6 +9,7 @@ import mataPelajaranRouter from "./mata-pelajaran";
 import jadwalRouter from "./jadwal";
 import absensiRouter from "./absensi";
 import nilaiRouter from "./nilai";
+import chatRouter from "./chat";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(mataPelajaranRouter);
 router.use(jadwalRouter);
 router.use(absensiRouter);
 router.use(nilaiRouter);
+router.use(chatRouter);
 
 export default router;

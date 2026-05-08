@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import Chatbot from "@/components/Chatbot";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import {
   BookOpen,
@@ -414,6 +415,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Floating Chatbot */}
+      <Chatbot />
 
       {/* Incomplete profile notification modal — siswa only */}
       <Dialog open={showProfileNotif} onOpenChange={setShowProfileNotif}>
