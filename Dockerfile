@@ -1,7 +1,7 @@
-FROM node:22-alpine
+FROM node:22-slim
 
 # git may be needed by some npm lifecycle scripts
-RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
