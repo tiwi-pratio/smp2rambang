@@ -1,0 +1,88 @@
+no builders available in region - falling back to global scheduling
+scheduling build on Metal builder "builder-grgzpb"
+[snapshot] received sha256:1c4c13c412474589b8ec0d9fea3d708ad62afb0b7ea8f0f1fd21da8e7cd32b24 md5:39367ae46aad42855a35f95e1437f5da
+receiving snapshot
+5.9 MB
+556ms
+found 'Dockerfile' at 'Dockerfile'
+found 'nixpacks.toml' at 'nixpacks.toml'
+found 'railway.json' at 'railway.json'
+analyzing snapshot
+5.9 MB
+61ms
+unpacking archive
+7.5 MB
+101ms
+uploading snapshot
+5.9 MB
+234ms
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for docker.io/library/node:22-alpine
+152ms
+
+internal
+load .dockerignore
+0ms
+
+[ 1/17] FROM docker.io/library/node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f cached
+74ms
+
+internal
+load build context
+0ms
+
+[ 2/17] RUN apk add --no-cache git
+23s
+OK: 23.2 MiB in 31 packages
+
+[ 3/17] WORKDIR /app
+1s
+
+[ 4/17] RUN npm install -g pnpm@9
+12s
+npm notice
+
+[ 5/17] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.json tsconfig.base.json ./
+5s
+
+[ 6/17] COPY lib/api-spec/package.json lib/api-spec/
+912ms
+
+[ 7/17] COPY lib/api-client-react/package.json lib/api-client-react/
+1s
+
+[ 8/17] COPY lib/api-zod/package.json lib/api-zod/
+790ms
+
+[ 9/17] COPY lib/db/package.json lib/db/
+712ms
+
+1
+COPY artifacts/api-server/package.json artifacts/api-server/
+1s
+
+1
+COPY artifacts/siakad/package.json artifacts/siakad/
+943ms
+
+1
+COPY artifacts/mockup-sandbox/package.json artifacts/mockup-sandbox/
+875ms
+
+1
+COPY scripts/package.json scripts/
+584ms
+
+1
+RUN pnpm install --frozen-lockfile
+1s
+Scope: all 9 workspace projects
+ ERR_PNPM_LOCKFILE_CONFIG_MISMATCH  Cannot proceed with the frozen installation. The current "overrides" configuration doesn't match the value found in the lockfile
+Update your lockfile using "pnpm install --no-frozen-lockfile"
+
+Build Failed: build daemon returned an error < failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1 >
